@@ -1,0 +1,36 @@
+# Noise2Article — Auto-run pipeline once per day
+# Add secret N2A_BACKEND_URL (e.g. https://your-backend.onrender.com) in repo Settings → Secrets
+
+name: Noise2Article Cron
+
+on:
+  schedule:
+    - cron: '30 11 * * *'  # Every day at 11:30 UTC (17:00 IST)
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Noise2Article pipeline
+        run: |
+          BACKEND_URL="${{ secrets.N2A_BACKEND_URL }}"
+          if [ -z "$BACKEND_URL" ]; then
+            echo "::warning::N2A_BACKEND_URL secret not set. Add it in repo Settings → Secrets."
+            exit 0
+          fi
+          echo "Calling $BACKEND_URL/api/n2a/discover"
+          RESP=$(curl -s -w "\n%{http_code}" -X POST "$BACKEND_URL/api/n2a/discover" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            --max-time 600)
+          HTTP_CODE=$(echo "$RESP" | tail -n1)
+          BODY=$(echo "$RESP" | sed '$d')
+          echo "HTTP $HTTP_CODE"
+          echo "$BODY" | head -c 500
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Pipeline completed successfully"
+          else
+            echo "Pipeline returned HTTP $HTTP_CODE"
+            exit 1
+          fi

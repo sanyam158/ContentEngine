@@ -1,0 +1,28 @@
+steps:
+  # 1) Build Docker image from backend/
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/script2thread-backend', '.']
+    dir: backend
+
+  # 2) Push image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/script2thread-backend']
+
+  # 3) Deploy that image to Cloud Run (reuses env vars already set in console)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'script2thread-backend'
+      - '--image=gcr.io/$PROJECT_ID/script2thread-backend'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--timeout=900'
+
+images:
+  - 'gcr.io/$PROJECT_ID/script2thread-backend'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
