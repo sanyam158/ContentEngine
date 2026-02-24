@@ -329,6 +329,111 @@ export const NICHE_PRESETS: Record<string, NichePreset> = {
       ],
     },
   },
+
+  'geopolitics': {
+    context: {
+      id: 'geopolitics',
+      displayName: 'Geopolitics',
+      brandVoice: 'analytical geopolitics media brand for informed global citizens',
+      platformDescriptor: 'geopolitics and international affairs content platform',
+      specificityExamples: 'NATO, BRICS, UN Security Council, sanctions, Belt and Road, Taiwan Strait, ASEAN, G7, proxy war, sovereignty',
+      hnFrontPagePattern: 'geopolit|\\bnato\\b|\\bchina\\b|\\brussia\\b|ukraine|taiwan|sanction|\\bwar\\b|diplomacy|nuclear|\\bimf\\b|alliance|sovereignty',
+      bangerDefinition: 'clear-eyed analysis of power dynamics with historical context, named actors, and concrete stakes for readers',
+    },
+    configOverrides: {
+      subreddits: [
+        { name: 'geopolitics', tier: 1, minScore: 50, minComments: 0 },
+        { name: 'worldnews', tier: 1, minScore: 200, minComments: 0 },
+        { name: 'CredibleDefense', tier: 1, minScore: 30, minComments: 0 },
+        { name: 'NeutralPolitics', tier: 2, minScore: 30, minComments: 0 },
+        { name: 'GlobalPolitics', tier: 2, minScore: 20, minComments: 0 },
+        { name: 'internationalpolitics', tier: 2, minScore: 20, minComments: 0 },
+        { name: 'IRstudies', tier: 3, minScore: 20, minComments: 10 },
+        { name: 'PoliticalScience', tier: 3, minScore: 20, minComments: 10 },
+      ],
+      hnQueries: ['geopolitics OR sanctions OR diplomacy', 'China OR Russia OR NATO OR Taiwan'],
+      rssFeeds: [
+        'https://www.foreignaffairs.com/rss.xml',
+        'https://thediplomat.com/feed/',
+        'https://warontherocks.com/feed/',
+        'https://foreignpolicy.com/feed/',
+        'https://www.rand.org/pubs/all.xml',
+        'https://carnegieendowment.org/rss/',
+        'https://www.aljazeera.com/xml/rss/all.xml',
+        'https://thewire.in/rss',
+      ],
+    },
+  },
+
+  'hinduism': {
+    context: {
+      id: 'hinduism',
+      displayName: 'Hinduism & Indian Culture',
+      brandVoice: 'thoughtful Hindu philosophy and Indian civilization media brand',
+      platformDescriptor: 'Hinduism and Indian culture content platform',
+      specificityExamples: 'Vedanta, Bhagavad Gita, Upanishads, Dharma, Karma, Advaita, Bhakti, Shaivism, Vaishnavism, Sanatan Dharma, Ayurveda, Sanskrit',
+      hnFrontPagePattern: '\\bhindu\\b|vedic|\\bdharma\\b|\\bkarma\\b|\\byoga\\b|sanatan|upanishad|bhagavad|vedanta|indian.?culture|\\bsanskrit\\b|\\bmandir\\b|\\bpuja\\b',
+      bangerDefinition: 'deep dives into Hindu philosophy, scripture, or living traditions with accessible explanations and contemporary relevance',
+    },
+    configOverrides: {
+      subreddits: [
+        { name: 'hinduism', tier: 1, minScore: 30, minComments: 0 },
+        { name: 'IndianHistory', tier: 1, minScore: 30, minComments: 0 },
+        { name: 'yoga', tier: 1, minScore: 50, minComments: 0 },
+        { name: 'Vedanta', tier: 2, minScore: 20, minComments: 0 },
+        { name: 'IndianPhilosophy', tier: 2, minScore: 20, minComments: 0 },
+        { name: 'india', tier: 2, minScore: 100, minComments: 0 },
+        { name: 'Sanatana_Dharma', tier: 3, minScore: 20, minComments: 10 },
+        { name: 'bhaktyoga', tier: 3, minScore: 10, minComments: 5 },
+      ],
+      hnQueries: ['Hinduism OR Vedanta OR Sanskrit', 'Indian philosophy OR Dharma OR Yoga'],
+      rssFeeds: [
+        'https://swarajyamag.com/feed',
+        'https://pragyata.com/feed/',
+        'https://www.dharmadispatch.in/feed',
+        'https://www.indicatoday.com/feed/',
+        'https://indiafacts.org/feed/',
+        'https://www.hinduismtoday.com/rss',
+        'https://www.thehindu.com/society/history-and-culture/feeder/default.rss',
+        'https://www.speakingtree.in/rss',
+      ],
+    },
+  },
+
+  'stock-market': {
+    context: {
+      id: 'stock-market',
+      displayName: 'Stock Market & Investing',
+      brandVoice: 'no-nonsense stock market and investing media brand for retail investors',
+      platformDescriptor: 'stock market and equity investing content platform',
+      specificityExamples: 'S&P 500, P/E ratio, RSI, MACD, options, short squeeze, dividend yield, SPY, QQQ, earnings per share, technical analysis, fundamental analysis',
+      hnFrontPagePattern: '\\bstock\\b|equity|market crash|\\bearnings\\b|\\bfed\\b|federal reserve|interest rate|\\bipo\\b|short sell|hedge fund|wall street|bull market|bear market',
+      bangerDefinition: 'specific stock analysis or market moves with real ticker symbols, price levels, and a clear underlying thesis',
+    },
+    configOverrides: {
+      subreddits: [
+        { name: 'stocks', tier: 1, minScore: 100, minComments: 0 },
+        { name: 'investing', tier: 1, minScore: 100, minComments: 0 },
+        { name: 'wallstreetbets', tier: 1, minScore: 500, minComments: 0 },
+        { name: 'SecurityAnalysis', tier: 2, minScore: 30, minComments: 0 },
+        { name: 'dividends', tier: 2, minScore: 30, minComments: 0 },
+        { name: 'options', tier: 2, minScore: 50, minComments: 0 },
+        { name: 'StockMarket', tier: 3, minScore: 50, minComments: 20 },
+        { name: 'ValueInvesting', tier: 3, minScore: 20, minComments: 10 },
+      ],
+      hnQueries: ['stock market OR earnings OR Federal Reserve', 'investing OR equity OR options trading'],
+      rssFeeds: [
+        'https://finance.yahoo.com/news/rssindex',
+        'https://feeds.content.dowjones.io/public/rss/mw_topstories',
+        'https://www.investopedia.com/feedbuilder/feed/getfeed/?feedType=rss',
+        'https://feeds.bloomberg.com/markets/news.rss',
+        'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258',
+        'https://seekingalpha.com/feed.xml',
+        'https://www.fool.com/feeds/index.aspx',
+        'https://www.ft.com/rss/home',
+      ],
+    },
+  },
 };
 
 /** Returns a preset by ID, or undefined if not found */

@@ -148,6 +148,69 @@ Content-Type: application/json
 }
 ```
 
+## 🗞️ Noise2Article — Niche System
+
+The Noise2Article pipeline scrapes Reddit, HN, and RSS feeds, filters signal from noise via an LLM gatekeeper, synthesizes trending themes, and generates ready-to-post articles. It is fully niche-driven — every prompt, regex, and source list is controlled by a niche preset.
+
+### Available Niches
+
+| Niche ID | Display Name | Key Sources |
+|---|---|---|
+| `ai-tech` | AI & Tech | LocalLLaMA, ClaudeAI, OpenAI, MIT Review, TechCrunch AI |
+| `personal-finance` | Personal Finance | r/personalfinance, r/FIRE, NerdWallet, Mr. Money Mustache |
+| `health-wellness` | Health & Wellness | r/longevity, r/fitness, NIH, Examine.com |
+| `digital-marketing` | Digital Marketing | r/SEO, r/PPC, Moz, Backlinko, HubSpot |
+| `productivity` | Productivity & Tools | r/ObsidianMD, r/Notion, Ness Labs, Zapier blog |
+| `travel` | Travel | r/solotravel, r/digitalnomad, Nomadic Matt, The Points Guy |
+| `geopolitics` | Geopolitics | r/geopolitics, r/CredibleDefense, Foreign Affairs, The Diplomat, War on the Rocks |
+| `hinduism` | Hinduism & Indian Culture | r/hinduism, r/Vedanta, Swarajya, Dharma Dispatch, Indica Today |
+| `stock-market` | Stock Market & Investing | r/stocks, r/wallstreetbets, MarketWatch, Bloomberg, Seeking Alpha |
+
+### How to Add a New Niche
+
+Adding a niche requires changes in **two files only**:
+
+#### 1. Backend — `backend/src/services/noise2article/types.ts`
+
+Add a new entry to the `NICHE_PRESETS` object. Every field is injected directly into LLM prompts — no code changes elsewhere are needed.
+
+```typescript
+'your-niche-id': {
+  context: {
+    id: 'your-niche-id',
+    displayName: 'Your Niche Name',          // shown in UI dropdown
+    brandVoice: 'your brand voice descriptor', // tone for writer/synthesizer prompts
+    platformDescriptor: 'your platform type', // identity for gatekeeper/enricher prompts
+    specificityExamples: 'Term1, Tool2, Brand3', // concrete examples for gatekeeper check
+    hnFrontPagePattern: 'keyword1|keyword2',  // regex to filter HN posts (compiled at runtime)
+    bangerDefinition: 'what makes a great article in this niche', // injected into writer prompt
+  },
+  configOverrides: {
+    subreddits: [
+      // Tier 1 = core communities, Tier 2 = niche, Tier 3 = strict filter (minComments enforced)
+      { name: 'subreddit_name', tier: 1, minScore: 50, minComments: 0 },
+    ],
+    hnQueries: ['keyword OR keyword2'],       // HN Algolia search queries
+    rssFeeds: ['https://example.com/feed'],   // RSS/Atom feed URLs
+  },
+},
+```
+
+#### 2. Frontend — `frontend/src/pages/Noise2Article.tsx`
+
+Add a line to the `NICHE_OPTIONS` array (around line 220):
+
+```typescript
+const NICHE_OPTIONS = [
+  // ... existing niches ...
+  { value: 'your-niche-id', label: 'Your Niche Name' },
+];
+```
+
+That's it — the pipeline, API validation, and article generation all pick up the new niche automatically.
+
+---
+
 ## 🎨 Customization
 
 ### Change LLM Model

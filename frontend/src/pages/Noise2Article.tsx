@@ -224,6 +224,9 @@ const NICHE_OPTIONS = [
   { value: 'digital-marketing', label: 'Digital Marketing' },
   { value: 'productivity',      label: 'Productivity & Tools' },
   { value: 'travel',            label: 'Travel' },
+  { value: 'geopolitics',       label: 'Geopolitics' },
+  { value: 'hinduism',          label: 'Hinduism & Indian Culture' },
+  { value: 'stock-market',      label: 'Stock Market & Investing' },
 ];
 
 export function Noise2Article() {
