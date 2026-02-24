@@ -83,7 +83,8 @@ async function attachArticleImages(
         },
       });
     } catch (err: any) {
-      log(`Image: failed for "${article.title}": ${err.message}`);
+      log(`Image: FAILED for "${article.title}": ${err.message}`);
+      console.error('[Pipeline] Image generation error (full):', err);
       results.push(article);
     }
   }

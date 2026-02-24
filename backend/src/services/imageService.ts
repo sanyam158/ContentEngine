@@ -90,7 +90,7 @@ class ImageService {
             text: `Using the reference image(s) above as style inspiration, generate an image: ${prompt}`,
           });
         } else {
-          parts.push(prompt);
+          parts.push({ text: prompt });
         }
 
         contents = parts;
