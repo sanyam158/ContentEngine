@@ -82,6 +82,7 @@ export interface GeneratedArticle {
   threadTweets: string[];
   sources: Array<{ source: 'reddit' | 'hn' | 'twitter' | 'rss' | 'tavily'; title: string; url?: string }>;
   image?: { base64: string; mimeType: string; prompt: string };
+  imageUrl?: string;
   themeId: string;
   themeName: string;
 }
@@ -122,14 +123,20 @@ export function ArticleCard({
   const refInputRef = useRef<HTMLInputElement>(null);
 
   const downloadImage = () => {
-    if (!article.image) return;
-    const { mimeType, base64 } = article.image;
+    if (!article.image && !article.imageUrl) return;
     const link = document.createElement('a');
     const safeTitle =
       article.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'article-image';
-    const extension = mimeType.includes('png') ? 'png' : mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
-    link.href = `data:${mimeType};base64,${base64}`;
-    link.download = `${safeTitle}.${extension}`;
+    if (article.imageUrl) {
+      link.href = article.imageUrl;
+      link.download = `${safeTitle}.jpg`;
+      link.target = '_blank';
+    } else {
+      const { mimeType, base64 } = article.image!;
+      const extension = mimeType.includes('png') ? 'png' : mimeType.includes('jpeg') || mimeType.includes('jpg') ? 'jpg' : mimeType.includes('webp') ? 'webp' : 'png';
+      link.href = `data:${mimeType};base64,${base64}`;
+      link.download = `${safeTitle}.${extension}`;
+    }
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -254,12 +261,12 @@ export function ArticleCard({
       </div>
 
       {/* Optional header image */}
-      {article.image && (
+      {(article.image || article.imageUrl) && (
         <div className="bg-black/40 border-b border-white/[0.06]">
           <div className="aspect-[16/9] w-full overflow-hidden relative group">
             <img
-              src={`data:${article.image.mimeType};base64,${article.image.base64}`}
-              alt={article.image.prompt}
+              src={article.imageUrl ?? `data:${article.image!.mimeType};base64,${article.image!.base64}`}
+              alt={article.image?.prompt ?? 'Article image'}
               className="w-full h-full object-cover"
             />
             <div className="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition">
@@ -344,7 +351,7 @@ export function ArticleCard({
       )}
 
       {/* No image - generate one */}
-      {!article.image && articleId && onRegenerateImage && (
+      {!article.image && !article.imageUrl && articleId && onRegenerateImage && (
         <div className="p-4 border-b border-white/[0.06]">
           {showImagePanel ? (
             <div className="space-y-2 animate-fade-in">

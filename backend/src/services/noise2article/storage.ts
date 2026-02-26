@@ -50,6 +50,44 @@ async function readFromGist(): Promise<GeneratedArticle[]> {
   }
 }
 
+/** Upload a base64 image to ImgBB and return the permanent URL, or null on failure. */
+async function uploadToImgBB(base64: string): Promise<string | null> {
+  const apiKey = process.env.IMGBB_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const form = new URLSearchParams();
+    form.set('key', apiKey);
+    form.set('image', base64);
+    const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: form });
+    if (!res.ok) return null;
+    const data = await res.json() as { success: boolean; data?: { url: string } };
+    return data.success && data.data?.url ? data.data.url : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * For each article that has a raw base64 image:
+ *  - If IMGBB_API_KEY is set: upload to ImgBB → store permanent URL → strip base64
+ *  - If already has imageUrl: just strip base64 (skip re-upload)
+ *  - If no IMGBB_API_KEY: keep base64 as-is
+ * Runs for ALL storage backends so local, GCS, and Gist behave the same.
+ */
+async function processImages(items: GeneratedArticle[]): Promise<GeneratedArticle[]> {
+  if (!process.env.IMGBB_API_KEY) return items;
+  return Promise.all(items.map(async a => {
+    if (!a.image?.base64) return a;
+    if (a.imageUrl) {
+      const { base64: _dropped, ...imageMeta } = a.image;
+      return { ...a, image: imageMeta };
+    }
+    const url = await uploadToImgBB(a.image.base64);
+    const { base64: _dropped, ...imageMeta } = a.image;
+    return url ? { ...a, image: imageMeta, imageUrl: url } : { ...a, image: imageMeta };
+  }));
+}
+
 async function writeToGist(items: GeneratedArticle[]): Promise<void> {
   const gistId = process.env.GIST_ID;
   const token = process.env.GITHUB_TOKEN;
@@ -142,21 +180,33 @@ async function readAll(): Promise<GeneratedArticle[]> {
 }
 
 async function writeAll(items: GeneratedArticle[]): Promise<void> {
-  if (process.env.GIST_ID && process.env.GITHUB_TOKEN) return writeToGist(items);
-  if (process.env.GCS_BUCKET) return writeToGCS(items);
-  return writeToLocal(items);
+  const processed = await processImages(items);
+  if (process.env.GIST_ID && process.env.GITHUB_TOKEN) return writeToGist(processed);
+  if (process.env.GCS_BUCKET) return writeToGCS(processed);
+  return writeToLocal(processed);
 }
 
 export async function saveGeneratedArticles(articles: GeneratedArticle[]): Promise<number> {
   if (!articles.length) return 0;
+
+  // Drop articles that failed to generate properly (no id, title, or body)
+  const valid = articles.filter(a => {
+    if (!a.id || !a.title?.trim() || !a.xText?.trim() || a.xText.trim().length < 100) {
+      console.warn(`[Storage] Skipping malformed article (id=${a.id}, title="${a.title?.slice(0, 40)}")`);
+      return false;
+    }
+    return true;
+  });
+  if (!valid.length) return 0;
+
   const existing = await readAll();
   const byId = new Map(existing.map(a => [a.id, a]));
-  for (const a of articles) {
+  for (const a of valid) {
     byId.set(a.id, a);
   }
   const merged = Array.from(byId.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   await writeAll(merged);
-  return articles.length;
+  return valid.length;
 }
 
 export async function listSavedArticles(): Promise<SavedArticleMeta[]> {
@@ -223,7 +273,8 @@ export async function updateArticleImage(id: string, image: { base64: string; mi
   const existing = await readAll();
   const idx = existing.findIndex(a => a.id === id);
   if (idx < 0) return null;
-  existing[idx] = { ...existing[idx], image };
+  // Clear imageUrl so the next Gist write re-uploads the new image to ImgBB
+  existing[idx] = { ...existing[idx], image, imageUrl: undefined };
   await writeAll(existing);
   return existing[idx];
 }

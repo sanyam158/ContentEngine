@@ -524,6 +524,8 @@ export interface GeneratedArticle {
     mimeType: string;
     prompt: string;
   };
+  /** Permanent hosted URL of the image (set after uploading to ImgBB; replaces base64 for Gist storage) */
+  imageUrl?: string;
   /** Source attribution used to write the article */
   /** Source attribution - includes both raw post sources and Tavily research sources */
   sources: Array<{ source: PostSource | 'tavily'; title: string; url?: string }>;

@@ -45,29 +45,143 @@ class ImageService {
     aspectRatio?: '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9'
   ): Promise<GenerateImageResult> {
     if (referenceImages?.length) {
-      console.log('[ImageService] Note: referenceImages not supported with Pollinations.ai — ignored');
+      console.log('[ImageService] Note: referenceImages not supported — ignored');
     }
     if (conversationHistory?.length) {
-      console.log('[ImageService] Note: conversationHistory not supported with Pollinations.ai — ignored');
+      console.log('[ImageService] Note: conversationHistory not supported — ignored');
     }
 
     const [w, h] = aspectRatioToDimensions(aspectRatio ?? '16:9');
-    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1500));
-    const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${w}&height=${h}&model=flux&nologo=true&seed=${Date.now()}`;
 
-    console.log(`[ImageService] Generating image via Pollinations.ai (${w}×${h})...`);
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Pollinations.ai request failed: ${response.status} ${response.statusText}`);
+    // ── Primary: HuggingFace FLUX.1-schnell (free, just needs HF_TOKEN) ──────
+    const hfToken = process.env.HF_TOKEN;
+    if (hfToken) {
+      return this.generateImageHuggingFace(prompt, w, h, hfToken);
     }
 
-    const buffer = await response.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString('base64');
-    const mimeType = response.headers.get('content-type') || 'image/jpeg';
+    // ── Fallback: Pollinations.ai ────────────────────────────────────────────
+    return this.generateImagePollinations(prompt, w, h);
+  }
 
-    console.log(`[ImageService] Image generated successfully via Pollinations.ai (${mimeType})`);
-    return { base64, mimeType, prompt };
+  private async generateImageHuggingFace(
+    prompt: string,
+    w: number,
+    h: number,
+    token: string
+  ): Promise<GenerateImageResult> {
+    const HF_MODEL = 'https://router.huggingface.co/hf-inference/models/black-forest-labs/FLUX.1-schnell';
+    const MAX_ATTEMPTS = 4; // extra attempt to absorb cold-start
+    const TIMEOUT_MS = 120_000;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+      try {
+        console.log(`[ImageService] HuggingFace attempt ${attempt}/${MAX_ATTEMPTS} (${w}×${h})...`);
+        const res = await fetch(HF_MODEL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: prompt.slice(0, 1000),
+            parameters: { width: w, height: h, num_inference_steps: 4 },
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timer);
+
+        // 503 = model is loading — wait the suggested time then retry
+        if (res.status === 503) {
+          const err = await res.json().catch(() => ({}) as any);
+          const waitSec = Math.min(Math.ceil(err.estimated_time ?? 20), 40);
+          console.log(`[ImageService] HuggingFace model loading — waiting ${waitSec}s...`);
+          await new Promise(r => setTimeout(r, waitSec * 1000));
+          continue; // don't count as a failed attempt
+        }
+
+        if (!res.ok) {
+          const body = await res.text().catch(() => '');
+          throw new Error(`HuggingFace HTTP ${res.status}: ${body.slice(0, 200)}`);
+        }
+
+        const contentType = res.headers.get('content-type') || '';
+        if (!contentType.startsWith('image/')) {
+          const body = await res.text().catch(() => '');
+          throw new Error(`HuggingFace returned non-image type "${contentType}": ${body.slice(0, 200)}`);
+        }
+
+        const buffer = await res.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        console.log('[ImageService] Image generated successfully via HuggingFace');
+        return { base64, mimeType: contentType, prompt };
+
+      } catch (err: any) {
+        clearTimeout(timer);
+        const isAbort = err.name === 'AbortError';
+        lastError = isAbort ? new Error(`HuggingFace timed out after ${TIMEOUT_MS / 1000}s`) : err;
+        console.warn(`[ImageService] HuggingFace attempt ${attempt} failed: ${lastError.message}`);
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise(r => setTimeout(r, 5_000));
+        }
+      }
+    }
+    throw lastError ?? new Error('HuggingFace image generation failed after all attempts');
+  }
+
+  private async generateImagePollinations(
+    prompt: string,
+    w: number,
+    h: number
+  ): Promise<GenerateImageResult> {
+    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1500));
+    const seed = Math.floor(Math.random() * 2_147_483_647);
+    const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${w}&height=${h}&model=flux&nologo=true&private=true&seed=${seed}`;
+
+    const MAX_ATTEMPTS = 3;
+    const TIMEOUT_MS = 90_000;
+    const RETRY_DELAY_MS = 16_000;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+      try {
+        console.log(`[ImageService] Pollinations.ai attempt ${attempt}/${MAX_ATTEMPTS} (${w}×${h})...`);
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
+
+        if (!response.ok) {
+          const body = await response.text().catch(() => '');
+          throw new Error(`Pollinations.ai HTTP ${response.status}: ${body.slice(0, 200)}`);
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        if (!contentType.startsWith('image/')) {
+          const body = await response.text().catch(() => '');
+          throw new Error(`Pollinations.ai returned non-image content-type "${contentType}": ${body.slice(0, 200)}`);
+        }
+
+        const buffer = await response.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        console.log('[ImageService] Image generated successfully via Pollinations.ai');
+        return { base64, mimeType: contentType, prompt };
+
+      } catch (err: any) {
+        clearTimeout(timer);
+        const isAbort = err.name === 'AbortError';
+        lastError = isAbort ? new Error(`Pollinations.ai timed out after ${TIMEOUT_MS / 1000}s`) : err;
+        console.warn(`[ImageService] Pollinations attempt ${attempt} failed: ${lastError.message}`);
+        if (attempt < MAX_ATTEMPTS) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+        }
+      }
+    }
+    throw lastError ?? new Error('Pollinations.ai image generation failed');
   }
 
   /**
