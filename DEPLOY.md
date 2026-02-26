@@ -1,69 +1,166 @@
 # Deployment Guide
 
-Repo: https://github.com/farizanjum/script2thread
+## Architecture
 
-Backend URL: `https://script2thread-backend-plkqgwpzoa-uc.a.run.app`
+| Part | Service | Cost | Auto-deploy |
+|------|---------|------|-------------|
+| Backend (Node/Express) | Render | Free | ✅ on every push to `main` |
+| Frontend (React/Vite) | Vercel | Free | ✅ on every push to `main` |
+
+After the one-time setup below, deploying new changes is just:
+```bash
+git add .
+git commit -m "your changes"
+git push
+```
+Both services redeploy automatically.
 
 ---
 
-## Step 1: Push to GitHub
+## One-time Setup
+
+### Step 1 — Push your code to GitHub
+
+Make sure your repo is on GitHub and `.env` is **never committed** (it's already in `.gitignore`).
 
 ```bash
-git init
 git add .
-git commit -m "Initial deploy setup"
-git branch -M main
-git remote add origin https://github.com/farizanjum/script2thread.git
-git push -u origin main
+git commit -m "deploy setup"
+git push origin main
 ```
 
-**Important:** Never commit `backend/.env` — it contains secrets. `.gitignore` already excludes it.
+---
+
+### Step 2 — Deploy Backend to Render
+
+1. Go to [render.com](https://render.com) → sign up free with GitHub
+
+2. Click **New +** → **Web Service**
+
+3. Click **Connect a repository** → select your GitHub repo
+
+4. Fill in the settings:
+
+   | Field | Value |
+   |-------|-------|
+   | **Name** | `contentengine-backend` (or anything) |
+   | **Root Directory** | `backend` |
+   | **Runtime** | `Node` |
+   | **Build Command** | `npm ci && npm run build` |
+   | **Start Command** | `node dist/index.js` |
+   | **Branch** | `main` |
+   | **Auto-Deploy** | `Yes` |
+
+5. Scroll down to **Environment Variables** and add these:
+
+   | Key | Value |
+   |-----|-------|
+   | `GEMINI_API_KEYS` | `key1,key2,key3` (comma-separated; use `GEMINI_API_KEY` if you only have one) |
+   | `TAVILY_API_KEY` | your Tavily key |
+   | `COMPOSIO_API_KEY` | your Composio key |
+   | `REDDIT_USER_ID` | your Composio entity ID (e.g. `pg-test-xxx`) |
+   | `NODE_ENV` | `production` |
+
+   > `FRONTEND_URL` will be added in Step 4 once you have the Vercel URL.
+
+6. Click **Create Web Service** — Render builds and deploys (takes ~2 min)
+
+7. **Copy the Render URL** shown at the top (e.g. `https://contentengine-backend.onrender.com`)
 
 ---
 
-## Step 2: Deploy Frontend to Vercel
+### Step 3 — Deploy Frontend to Vercel
 
-1. Go to [vercel.com](https://vercel.com) → Add New Project
-2. Import `farizanjum/script2thread`
-3. **Root Directory**: `frontend` (click Edit, set to `frontend`)
-4. **Environment Variable**:
-   - Name: `VITE_API_URL`
-   - Value: `https://script2thread-backend-plkqgwpzoa-uc.a.run.app/api`
-5. Deploy
+1. Go to [vercel.com](https://vercel.com) → sign up free with GitHub
 
----
+2. Click **Add New → Project**
 
-## Step 3: Configure Backend (Cloud Run)
+3. Import your GitHub repository
 
-In [Cloud Run Console](https://console.cloud.google.com/run) → script2thread-backend → Edit → Variables & Secrets:
+4. Set **Root Directory** to `frontend`
+   *(click "Edit" next to Root Directory before deploying)*
 
-| Variable | Value |
-|----------|-------|
-| `GEMINI_API_KEY` | Your Gemini API key |
-| `TAVILY_API_KEY` | Your Tavily API key |
-| `REDDIT_USER_ID` | From Composio dashboard |
-| `COMPOSIO_API_KEY` | Your Composio API key |
-| `FRONTEND_URL` | Your Vercel URL (e.g. `https://script2thread-xxx.vercel.app`) |
+5. Under **Environment Variables** add:
 
-`GCS_BUCKET` and `NODE_ENV` are already set by Cloud Build.
+   | Key | Value |
+   |-----|-------|
+   | `VITE_API_URL` | `https://contentengine-backend.onrender.com/api` ← your Render URL + `/api` |
+
+6. Click **Deploy** — takes ~1 min
+
+7. **Copy the Vercel URL** (e.g. `https://contentengine-abc123.vercel.app`)
 
 ---
 
-## Step 4: GitHub Secrets (for CI/CD + Cron)
+### Step 4 — Link backend to frontend (CORS)
 
-Go to repo → Settings → Secrets and variables → Actions:
+1. Go back to [render.com](https://render.com) → your service → **Environment**
+2. Add one more variable:
 
-| Secret | Value |
-|--------|-------|
-| `GCP_SA_KEY` | JSON key of GCP service account (Cloud Build + Cloud Run permissions) |
-| `N2A_BACKEND_URL` | `https://script2thread-backend-plkqgwpzoa-uc.a.run.app` |
+   | Key | Value |
+   |-----|-------|
+   | `FRONTEND_URL` | `https://contentengine-abc123.vercel.app` ← your Vercel URL |
+
+3. Render redeploys automatically (or click **Manual Deploy**)
 
 ---
 
 ## Checklist
 
 - [ ] Pushed to GitHub (no `.env` committed)
-- [ ] Vercel: imported repo, root `frontend`, `VITE_API_URL` set
-- [ ] Cloud Run: GEMINI, TAVILY, REDDIT_USER_ID, COMPOSIO_API_KEY, FRONTEND_URL
-- [ ] GitHub Secrets: `GCP_SA_KEY`, `N2A_BACKEND_URL`
-- [ ] Rotate any exposed API keys (if `.env` was ever committed)
+- [ ] Render: repo connected, `backend` root, build/start commands set
+- [ ] Render: `GEMINI_API_KEYS`, `TAVILY_API_KEY`, `COMPOSIO_API_KEY`, `REDDIT_USER_ID`, `NODE_ENV` set
+- [ ] Vercel: `frontend` root, `VITE_API_URL` pointing to Render URL
+- [ ] Render: `FRONTEND_URL` set to Vercel URL
+- [ ] Test: open Vercel URL in browser → trigger a pipeline run
+
+---
+
+## Updating the App (Future Deployments)
+
+```bash
+git add .
+git commit -m "describe your change"
+git push
+```
+
+- Render detects changes in `backend/` → rebuilds and redeploys backend
+- Vercel detects changes in `frontend/` → rebuilds and redeploys frontend
+
+No manual steps required.
+
+---
+
+## Adding / Updating Environment Variables
+
+- **Render**: Dashboard → your service → **Environment** → edit → service redeploys
+- **Vercel**: Dashboard → your project → **Settings → Environment Variables** → edit → redeploy
+
+---
+
+## Notes
+
+### Free tier limits
+- **Render free tier**: the service sleeps after 15 minutes of inactivity. The first request after sleep takes ~30 seconds to wake up. This is fine for personal/low-traffic use.
+- **Vercel free tier**: no sleeping, unlimited bandwidth for static sites.
+
+### Gemini key rotation (`GEMINI_API_KEYS`)
+Set multiple comma-separated keys to avoid hitting the free-tier daily quota:
+```
+GEMINI_API_KEYS=AIza...key1,AIza...key2,AIza...key3
+```
+When one key is exhausted, the pipeline automatically rotates to the next. If all keys are exhausted, it falls back to a cheaper model automatically (`gemini-3-pro-preview` → `gemini-3-flash-preview` → `gemini-2.0-flash` → `gemini-2.0-flash-lite`).
+
+### Custom domain on Vercel
+Vercel lets you add a custom domain for free under Settings → Domains.
+
+---
+
+## Alternative: Google Cloud Run (Advanced)
+
+The existing `cloudbuild.yaml` and `.github/workflows/deploy-backend.yml` support deploying to Cloud Run.
+This requires a GCP account, a service account JSON key stored as a GitHub Secret (`GCP_SA_KEY`), and the following env vars set in the Cloud Run console:
+
+`GEMINI_API_KEYS`, `TAVILY_API_KEY`, `COMPOSIO_API_KEY`, `REDDIT_USER_ID`, `FRONTEND_URL`
+
+Cloud Run never sleeps (faster cold starts) but requires more initial GCP setup.
