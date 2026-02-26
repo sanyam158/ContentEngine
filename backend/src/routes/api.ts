@@ -16,13 +16,13 @@ const upload = multer({
 
 // Helper function to extract/generate user ID from request
 const getUserId = (req: Request): string => {
-  // Try to get from query params first
-  if (req.query.userId && typeof req.query.userId === 'string') {
-    return req.query.userId;
-  }
   // Try from request headers
   if (req.headers['x-user-id'] && typeof req.headers['x-user-id'] === 'string') {
     return req.headers['x-user-id'];
+  }
+  // Try to get from query params
+  if (req.query.userId && typeof req.query.userId === 'string') {
+    return req.query.userId;
   }
   // Try from body
   if (req.body?.userId && typeof req.body.userId === 'string') {

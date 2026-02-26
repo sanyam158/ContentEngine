@@ -1,9 +1,9 @@
 /**
  * =============================================================================
- * Noise2Article — API Routes
+ * Noise2Article â€” API Routes
  * =============================================================================
  *
- * POST /api/n2a/discover — Run the full Noise2Article pipeline
+ * POST /api/n2a/discover â€” Run the full Noise2Article pipeline
  * =============================================================================
  */
 
@@ -48,7 +48,7 @@ function getFirstGeminiKey(): string {
   return keys[0];
 }
 
-// ─── POST /discover — Run the full pipeline ─────────────────────────────────
+// â”€â”€â”€ POST /discover â€” Run the full pipeline â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 router.post('/discover', async (req: Request, res: Response) => {
   const startTime = Date.now();
@@ -59,8 +59,12 @@ router.post('/discover', async (req: Request, res: Response) => {
       return res.status(500).json({ error: 'TAVILY_API_KEY not set' });
     }
 
-    const userId = req.body?.userId
-      || req.headers['x-user-id']
+    const headerUserId = Array.isArray(req.headers['x-user-id'])
+      ? req.headers['x-user-id'][0]
+      : req.headers['x-user-id'];
+
+    const userId = headerUserId
+      || req.body?.userId
       || process.env.DEFAULT_USER_ID
       || 'default-user';
 
@@ -116,7 +120,7 @@ router.post('/discover', async (req: Request, res: Response) => {
   }
 });
 
-// ─── GET /articles — list saved generated articles ──────────────────────────
+// â”€â”€â”€ GET /articles â€” list saved generated articles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get('/articles', async (_req: Request, res: Response) => {
   try {
     const items = await listSavedArticles();
@@ -126,7 +130,7 @@ router.get('/articles', async (_req: Request, res: Response) => {
   }
 });
 
-// ─── GET /articles/:id — fetch a saved article ──────────────────────────────
+// â”€â”€â”€ GET /articles/:id â€” fetch a saved article â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.get('/articles/:id', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id || '');
@@ -138,7 +142,7 @@ router.get('/articles/:id', async (req: Request, res: Response) => {
   }
 });
 
-// ─── DELETE /articles/:id — delete a saved article ─────────────────────────
+// â”€â”€â”€ DELETE /articles/:id â€” delete a saved article â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.delete('/articles/:id', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id || '');
@@ -150,7 +154,7 @@ router.delete('/articles/:id', async (req: Request, res: Response) => {
   }
 });
 
-// ─── PATCH /articles/:id — update article metadata (e.g. niche) ─────────────
+// â”€â”€â”€ PATCH /articles/:id â€” update article metadata (e.g. niche) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.patch('/articles/:id', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id || '');
@@ -164,7 +168,7 @@ router.patch('/articles/:id', async (req: Request, res: Response) => {
   }
 });
 
-// ─── POST /articles/:id/regenerate-image — regenerate article header image ─
+// â”€â”€â”€ POST /articles/:id/regenerate-image â€” regenerate article header image â”€
 router.post('/articles/:id/regenerate-image', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id || '');
@@ -199,7 +203,7 @@ router.post('/articles/:id/regenerate-image', async (req: Request, res: Response
   }
 });
 
-// ─── POST /articles/:id/edit-image — edit article image with conversation history ─
+// â”€â”€â”€ POST /articles/:id/edit-image â€” edit article image with conversation history â”€
 router.post('/articles/:id/edit-image', async (req: Request, res: Response) => {
   try {
     const id = String(req.params.id || '');
@@ -238,7 +242,7 @@ router.post('/articles/:id/edit-image', async (req: Request, res: Response) => {
   }
 });
 
-// ─── POST /test-image — test master prompts with sample titles ──────────────
+// â”€â”€â”€ POST /test-image â€” test master prompts with sample titles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 router.post('/test-image', async (req: Request, res: Response) => {
   try {
     const title = String(req.body?.title || '').trim();

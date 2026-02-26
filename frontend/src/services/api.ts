@@ -1,7 +1,38 @@
-import axios from 'axios';
-import { GenerateThreadResponse, ProcessFileResponse, PostThreadResponse, GenerateVariationsResponse, GenerateImageResponse } from '../types';
+import axios, { isAxiosError } from 'axios';
+import {
+  GenerateThreadResponse,
+  ProcessFileResponse,
+  PostThreadResponse,
+  GenerateVariationsResponse,
+  GenerateImageResponse,
+} from '../types';
+import {
+  clearStoredAuthToken,
+  getStoredAuthToken,
+  notifyAuthExpired,
+} from '../auth/tokenStorage';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  displayName: string;
+  role: 'admin' | 'editor' | 'viewer';
+}
+
+export interface LoginResponse {
+  success: boolean;
+  token?: string;
+  user?: AuthUser;
+  error?: string;
+}
+
+export interface CurrentUserResponse {
+  success: boolean;
+  user?: AuthUser;
+  error?: string;
+}
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -10,7 +41,49 @@ const api = axios.create({
   },
 });
 
+api.interceptors.request.use((config) => {
+  const token = getStoredAuthToken();
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (isAxiosError(error) && error.response?.status === 401 && getStoredAuthToken()) {
+      clearStoredAuthToken();
+      notifyAuthExpired();
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 export const apiService = {
+  // Authentication
+  login: async (username: string, password: string): Promise<LoginResponse> => {
+    const response = await api.post('/auth/login', { username, password });
+    return response.data;
+  },
+
+  getCurrentUser: async (): Promise<CurrentUserResponse> => {
+    const response = await api.get('/auth/me');
+    return response.data;
+  },
+
+  logout: async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const response = await api.post('/auth/logout');
+      return response.data;
+    } catch {
+      return { success: true };
+    }
+  },
+
   // Generate thread from script
   generateThread: async (
     script: string,
@@ -68,13 +141,12 @@ export const apiService = {
     return response.data;
   },
 
-  // Generate image using Nano Banana Pro (Gemini 3 Pro Image Preview)
+  // Generate image
   generateImage: async (
     options: { prompt?: string; tweetText?: string; threadContext?: string },
     referenceImages?: File[]
   ): Promise<GenerateImageResponse> => {
     if (referenceImages && referenceImages.length > 0) {
-      // Use multipart form data for reference images
       const formData = new FormData();
       if (options.prompt) formData.append('prompt', options.prompt);
       if (options.tweetText) formData.append('tweetText', options.tweetText);
@@ -107,6 +179,7 @@ export const apiService = {
       });
       return response.data;
     }
+
     const response = await api.post('/edit-image', { editPrompt, previousResult });
     return response.data;
   },
@@ -135,19 +208,14 @@ export const apiService = {
     return response.data;
   },
 
-  // ─── Noise2Article ─────────────────────────────────────────────────────
-
-  // Discover ideas (run full Noise2Article pipeline)
+  // Noise2Article: discover ideas
   discoverIdeas: async (options?: {
     twitterAccounts?: string[];
     topThemesToEnrich?: number;
     niche?: string;
   }): Promise<{ success: boolean; data?: any; error?: string; durationMs?: number }> => {
     const response = await api.post('/n2a/discover', options || {}, {
-      // Cloud Run request timeout is configured on the backend (Console screenshot).
-      // This client timeout just needs to be comfortably higher than the longest
-      // expected pipeline run so the browser doesn't give up early.
-      timeout: 600000, // 10 min client timeout — plenty of headroom for long runs
+      timeout: 600000,
     });
     return response.data;
   },
