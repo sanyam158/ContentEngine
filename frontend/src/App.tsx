@@ -28,7 +28,7 @@ function App() {
                   </linearGradient>
                 </defs>
               </svg>
-              <h1 className="text-xl font-semibold text-white tracking-tight">Script2Thread</h1>
+              <h1 className="text-xl font-semibold text-white tracking-tight">ContentEngine</h1>
             </div>
 
             {/* Navigation tabs */}

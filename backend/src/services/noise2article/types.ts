@@ -530,6 +530,8 @@ export interface GeneratedArticle {
   /** Which theme this article was generated from */
   themeId: string;
   themeName: string;
+  /** Niche ID this article was generated for (e.g. "ai-tech", "geopolitics") */
+  niche?: string;
 }
 
 // ─── Pipeline Result ────────────────────────────────────────────────────────

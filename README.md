@@ -1,4 +1,4 @@
-# Script 2 Thread - AI Twitter Thread Generator
+# ContentEngine — AI Content Generation Platform
 
 Convert your video scripts into viral X/Twitter threads using AI. This full-stack application combines **Gemini 3**, **Tavily web search**, and **Composio's X/Twitter integration** to create authentic, high-quality Twitter threads without the "AI slop" feel.
 
@@ -34,7 +34,7 @@ You'll need API keys for:
 
 ```bash
 # Navigate to project directory
-cd script2thread
+cd ContentEngine
 
 # Copy environment template
 cp backend/.env.example backend/.env

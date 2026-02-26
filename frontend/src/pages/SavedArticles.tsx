@@ -10,7 +10,20 @@ interface SavedArticleMeta {
   themeName: string;
   estimatedReadTime: string;
   tags: string[];
+  niche?: string;
 }
+
+const NICHE_LABELS: Record<string, string> = {
+  'ai-tech':           'AI & Tech',
+  'personal-finance':  'Personal Finance',
+  'health-wellness':   'Health & Wellness',
+  'digital-marketing': 'Digital Marketing',
+  'productivity':      'Productivity',
+  'travel':            'Travel',
+  'geopolitics':       'Geopolitics',
+  'hinduism':          'Hinduism & Indian Culture',
+  'stock-market':      'Stock Market',
+};
 
 export function SavedArticles() {
   const [savedList, setSavedList] = useState<SavedArticleMeta[]>([]);
@@ -18,6 +31,8 @@ export function SavedArticles() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loadedArticle, setLoadedArticle] = useState<GeneratedArticle | null>(null);
   const [loadingArticle, setLoadingArticle] = useState(false);
+  const [editingNicheId, setEditingNicheId] = useState<string | null>(null);
+  const [savingNiche, setSavingNiche] = useState(false);
 
   const refreshList = async () => {
     setLoading(true);
@@ -49,6 +64,22 @@ export function SavedArticles() {
       return { conversationHistory: resp.conversationHistory };
     } catch {
       return {};
+    }
+  };
+
+  const handleNicheChange = async (e: React.ChangeEvent<HTMLSelectElement>, id: string) => {
+    e.stopPropagation();
+    const niche = e.target.value;
+    if (!niche) return;
+    setSavingNiche(true);
+    try {
+      const resp = await apiService.updateN2AArticleNiche(id, niche);
+      if (resp.success) {
+        setSavedList(prev => prev.map(a => a.id === id ? { ...a, niche } : a));
+      }
+    } finally {
+      setSavingNiche(false);
+      setEditingNicheId(null);
     }
   };
 
@@ -169,6 +200,44 @@ export function SavedArticles() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                   <div className="flex-1 min-w-0">
+                    <div className="mb-1.5" onClick={e => e.stopPropagation()}>
+                      {editingNicheId === a.id ? (
+                        <select
+                          autoFocus
+                          disabled={savingNiche}
+                          defaultValue={a.niche ?? ''}
+                          onChange={e => handleNicheChange(e, a.id)}
+                          onBlur={() => setEditingNicheId(null)}
+                          className="text-[11px] font-semibold bg-zinc-800 border border-red-500/30 text-red-400 rounded-md px-2 py-0.5 outline-none cursor-pointer"
+                        >
+                          <option value="" disabled>Select niche…</option>
+                          {Object.entries(NICHE_LABELS).map(([val, label]) => (
+                            <option key={val} value={val}>{label}</option>
+                          ))}
+                        </select>
+                      ) : a.niche ? (
+                        <button
+                          onClick={() => setEditingNicheId(a.id)}
+                          title="Click to change niche"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold tracking-wide bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition"
+                        >
+                          {NICHE_LABELS[a.niche] ?? a.niche}
+                          <svg className="w-2.5 h-2.5 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H8v-2.414a2 2 0 01.586-1.414z" />
+                          </svg>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setEditingNicheId(a.id)}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium text-zinc-500 border border-dashed border-zinc-700 hover:border-zinc-500 hover:text-zinc-400 transition"
+                        >
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Set niche
+                        </button>
+                      )}
+                    </div>
                     <div className="text-sm font-medium text-zinc-100 line-clamp-2 leading-snug">
                       {a.title}
                     </div>

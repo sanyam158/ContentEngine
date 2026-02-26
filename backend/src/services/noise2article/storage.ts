@@ -14,7 +14,7 @@ import { GeneratedArticle } from './types.js';
 
 export type SavedArticleMeta = Pick<
   GeneratedArticle,
-  'id' | 'createdAt' | 'title' | 'themeId' | 'themeName' | 'estimatedReadTime' | 'tags'
+  'id' | 'createdAt' | 'title' | 'themeId' | 'themeName' | 'estimatedReadTime' | 'tags' | 'niche'
 >;
 
 const STORAGE_KEY = 'n2a-articles.json';
@@ -113,6 +113,7 @@ export async function listSavedArticles(): Promise<SavedArticleMeta[]> {
     themeName: a.themeName,
     estimatedReadTime: a.estimatedReadTime,
     tags: a.tags || [],
+    niche: a.niche,
   }));
 }
 
@@ -151,6 +152,15 @@ export async function deleteSavedArticle(id: string): Promise<boolean> {
   if (filtered.length === existing.length) return false;
   await writeAll(filtered);
   return true;
+}
+
+export async function updateArticleNiche(id: string, niche: string): Promise<GeneratedArticle | null> {
+  const existing = await readAll();
+  const idx = existing.findIndex(a => a.id === id);
+  if (idx < 0) return null;
+  existing[idx] = { ...existing[idx], niche };
+  await writeAll(existing);
+  return existing[idx];
 }
 
 export async function updateArticleImage(id: string, image: { base64: string; mimeType: string; prompt: string }): Promise<GeneratedArticle | null> {

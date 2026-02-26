@@ -51,7 +51,7 @@ app.use('/api/n2a', n2aRoutes);
 app.get('/', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
-    message: 'Script to Thread API Server',
+    message: 'ContentEngine API Server',
     version: '1.0.0',
     endpoints: {
       'POST /api/generate-thread': 'Generate a Twitter thread from a script',
@@ -104,7 +104,7 @@ app.use((req: Request, res: Response) => {
 app.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════╗
-║   Script to Thread API Server          ║
+║   ContentEngine API Server             ║
 ║   Running on port ${PORT}                ║
 ║   Environment: ${process.env.NODE_ENV || 'development'}          ║
 ╚════════════════════════════════════════╝

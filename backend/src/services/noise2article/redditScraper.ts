@@ -23,7 +23,7 @@ async function fetchRedditPublic(subreddit: string, limit: number): Promise<any>
   const url = `https://www.reddit.com/r/${encodeURIComponent(subreddit)}/hot.json?limit=${Math.min(limit, 100)}`;
   const res = await fetch(url, {
     headers: {
-      'User-Agent': 'Script2Thread/1.0 (Noise2Article pipeline; read-only)',
+      'User-Agent': 'ContentEngine/1.0 (Noise2Article pipeline; read-only)',
     },
   });
   if (!res.ok) throw new Error(`Reddit API ${res.status}: ${res.statusText}`);

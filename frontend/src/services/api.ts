@@ -193,6 +193,12 @@ export const apiService = {
     return response.data;
   },
 
+  // Update article niche
+  updateN2AArticleNiche: async (id: string, niche: string): Promise<{ success: boolean; data?: any; error?: string }> => {
+    const response = await api.patch(`/n2a/articles/${encodeURIComponent(id)}`, { niche });
+    return response.data;
+  },
+
   // Test master image prompts (no article required)
   testImagePrompt: async (options: {
     title: string;

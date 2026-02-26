@@ -13,7 +13,7 @@ import { GoogleGenAI } from '@google/genai';
 import { GeminiKeyRotator, parseGeminiApiKeys } from '../services/geminiKeyRotator.js';
 import { runPipeline, DEFAULT_CONFIG, NICHE_PRESETS, getNichePreset, DEFAULT_NICHE_CONTEXT } from '../services/noise2article/index.js';
 import type { PipelineConfig } from '../services/noise2article/index.js';
-import { listSavedArticles, getSavedArticle, deleteSavedArticle, updateArticleImage } from '../services/noise2article/storage.js';
+import { listSavedArticles, getSavedArticle, deleteSavedArticle, updateArticleImage, updateArticleNiche } from '../services/noise2article/storage.js';
 import { buildMasterPrompt, generateCreativePrompt, type ImagePromptStrategy } from '../services/noise2article/imagePrompts.js';
 import ImageService from '../services/imageService.js';
 
@@ -147,6 +147,20 @@ router.delete('/articles/:id', async (req: Request, res: Response) => {
     return res.json({ success: true });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message || 'Failed to delete article' });
+  }
+});
+
+// ─── PATCH /articles/:id — update article metadata (e.g. niche) ─────────────
+router.patch('/articles/:id', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || '');
+    const niche = req.body?.niche as string | undefined;
+    if (!niche?.trim()) return res.status(400).json({ success: false, error: 'niche is required' });
+    const updated = await updateArticleNiche(id, niche.trim());
+    if (!updated) return res.status(404).json({ success: false, error: 'Not found' });
+    return res.json({ success: true, data: updated });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Failed to update article' });
   }
 });
 

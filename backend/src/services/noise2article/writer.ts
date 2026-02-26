@@ -304,6 +304,7 @@ ${link ? `URL: ${link}` : ''}`;
       ],
       themeId: theme.id,
       themeName: theme.name,
+      niche: nicheContext.id,
     };
 
     const wordCount = article.markdown.split(/\s+/).length;

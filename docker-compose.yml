@@ -17,7 +17,7 @@ services:
     volumes:
       - ./backend/uploads:/app/uploads
     networks:
-      - script2thread
+      - contentengine
 
   frontend:
     build:
@@ -30,8 +30,8 @@ services:
     depends_on:
       - backend
     networks:
-      - script2thread
+      - contentengine
 
 networks:
-  script2thread:
+  contentengine:
     driver: bridge

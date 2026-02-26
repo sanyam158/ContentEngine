@@ -1,7 +1,7 @@
 {
-  "name": "script-to-thread-frontend",
+  "name": "contentengine-frontend",
   "version": "1.0.0",
-  "description": "Frontend for Script to Thread converter",
+  "description": "ContentEngine — AI content generation platform",
   "type": "module",
   "scripts": {
     "dev": "vite",
