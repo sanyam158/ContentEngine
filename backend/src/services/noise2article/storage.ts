@@ -3,8 +3,10 @@
  * Noise2Article — Storage for generated articles
  * =============================================================================
  *
- * - Local: JSON file at <backend>/data/n2a-articles.json
- * - GCP: GCS bucket when GCS_BUCKET env var is set (for Cloud Run)
+ * Priority (first match wins):
+ * 1. GitHub Gist  — GIST_ID + GITHUB_TOKEN env vars (Render / any host)
+ * 2. GCS bucket   — GCS_BUCKET env var (Cloud Run)
+ * 3. Local file   — <backend>/data/n2a-articles.json (dev)
  * =============================================================================
  */
 
@@ -18,6 +20,58 @@ export type SavedArticleMeta = Pick<
 >;
 
 const STORAGE_KEY = 'n2a-articles.json';
+
+// --- GitHub Gist storage (Render / any host) ---
+async function readFromGist(): Promise<GeneratedArticle[]> {
+  const gistId = process.env.GIST_ID;
+  const token = process.env.GITHUB_TOKEN;
+  if (!gistId || !token) return [];
+
+  try {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+    if (!res.ok) {
+      console.warn(`[Storage] Gist read failed: ${res.status} ${res.statusText}`);
+      return [];
+    }
+    const gist = await res.json() as { files: Record<string, { content: string }> };
+    const file = gist.files[STORAGE_KEY];
+    if (!file?.content) return [];
+    const parsed = JSON.parse(file.content);
+    return Array.isArray(parsed) ? (parsed as GeneratedArticle[]) : [];
+  } catch (err) {
+    console.warn('[Storage] Gist read error:', err);
+    return [];
+  }
+}
+
+async function writeToGist(items: GeneratedArticle[]): Promise<void> {
+  const gistId = process.env.GIST_ID;
+  const token = process.env.GITHUB_TOKEN;
+  if (!gistId || !token) return;
+
+  const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      files: { [STORAGE_KEY]: { content: JSON.stringify(items, null, 2) } },
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`[Storage] Gist write failed: ${res.status} — ${body}`);
+  }
+}
 
 // --- GCS storage (Cloud Run) ---
 async function readFromGCS(): Promise<GeneratedArticle[]> {
@@ -82,11 +136,13 @@ async function writeToLocal(items: GeneratedArticle[]): Promise<void> {
 
 // --- Unified interface ---
 async function readAll(): Promise<GeneratedArticle[]> {
+  if (process.env.GIST_ID && process.env.GITHUB_TOKEN) return readFromGist();
   if (process.env.GCS_BUCKET) return readFromGCS();
   return readFromLocal();
 }
 
 async function writeAll(items: GeneratedArticle[]): Promise<void> {
+  if (process.env.GIST_ID && process.env.GITHUB_TOKEN) return writeToGist(items);
   if (process.env.GCS_BUCKET) return writeToGCS(items);
   return writeToLocal(items);
 }
