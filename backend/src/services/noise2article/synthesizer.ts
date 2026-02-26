@@ -140,7 +140,7 @@ export async function synthesizeAndRank(
 
   try {
     const response = await gemini.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: [{
         role: 'user',
         parts: [{ text: `${prompt}\n\nPOSTS (${topPosts.length}):\n${JSON.stringify(postsForLLM)}\n\nJSON:` }],

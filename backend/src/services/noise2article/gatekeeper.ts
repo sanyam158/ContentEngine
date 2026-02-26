@@ -200,7 +200,7 @@ export async function llmGatekeeper(
 
     try {
       const response = await gemini.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3-pro-preview',
         contents: [{
           role: 'user',
           parts: [{ text: `${gatekeeperPrompt}\n\nPOSTS:\n${JSON.stringify(postsForLLM)}\n\nJSON:` }],

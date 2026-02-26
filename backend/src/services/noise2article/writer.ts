@@ -233,7 +233,7 @@ ${link ? `URL: ${link}` : ''}`;
 
   try {
     const response = await gemini.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: [
         { role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${userPrompt}` }] },
       ],

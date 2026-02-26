@@ -61,9 +61,12 @@ async function attachArticleImages(
   articles: GeneratedArticle[],
 ): Promise<GeneratedArticle[]> {
   if (!articles.length) return articles;
-  const apiKey = process.env.GEMINI_API_KEY;
+  // Resolve a Gemini key for ImageService (supports both GEMINI_API_KEYS and GEMINI_API_KEY)
+  const apiKey =
+    process.env.GEMINI_API_KEYS?.split(',')[0]?.trim() ||
+    process.env.GEMINI_API_KEY?.trim();
   if (!apiKey) {
-    log('Image: GEMINI_API_KEY not set, skipping article images');
+    log('Image: No Gemini API key set (GEMINI_API_KEY / GEMINI_API_KEYS), skipping article images');
     return articles;
   }
 

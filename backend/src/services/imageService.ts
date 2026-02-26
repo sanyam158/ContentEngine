@@ -4,193 +4,70 @@ interface GenerateImageResult {
   base64: string;
   mimeType: string;
   prompt: string;
-  thoughtSignatures?: string[]; // Array of thought signatures from the response
-  conversationHistory?: any[]; // Full conversation history for multi-turn editing
+  thoughtSignatures?: string[];
+  conversationHistory?: any[];
 }
 
-interface ConversationPart {
-  text?: string;
-  inlineData?: {
-    mimeType: string;
-    data: string;
+// ─── Aspect ratio → pixel dimensions for Pollinations.ai ────────────────────
+
+function aspectRatioToDimensions(ratio: string): [number, number] {
+  const map: Record<string, [number, number]> = {
+    '16:9':  [1920, 1080],
+    '9:16':  [1080, 1920],
+    '1:1':   [1024, 1024],
+    '4:3':   [1024,  768],
+    '3:4':   [ 768, 1024],
+    '3:2':   [1536, 1024],
+    '2:3':   [1024, 1536],
+    '21:9':  [2048,  880],
+    '4:5':   [ 820, 1024],
+    '5:4':   [1024,  820],
   };
-  thoughtSignature?: string;
+  return map[ratio] ?? [1920, 1080];
 }
 
 class ImageService {
   private client: GoogleGenAI;
-  // Nano Banana Pro — professional asset production with advanced reasoning ("Thinking")
-  // per https://ai.google.dev/gemini-api/docs/image-generation
-  private model = 'gemini-3-pro-image-preview';
 
   constructor(apiKey: string) {
     this.client = new GoogleGenAI({ apiKey });
   }
 
   /**
-   * Generate an image from a text prompt using Gemini 3 Pro Image Preview (Nano Banana Pro).
-   * Optionally accepts reference images as base64-encoded buffers for style guidance.
-   * Supports multi-turn conversations with conversation history and thought signatures.
+   * Generate an image from a text prompt using Pollinations.ai (free, no quota).
+   * referenceImages and conversationHistory are accepted for API compatibility
+   * but are not used — Pollinations.ai does not support multi-turn editing.
    */
   async generateImage(
     prompt: string,
     referenceImages?: { base64: string; mimeType: string }[],
-    conversationHistory?: any[], // Previous conversation turns with thought signatures
+    conversationHistory?: any[],
     aspectRatio?: '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16' | '16:9' | '21:9'
   ): Promise<GenerateImageResult> {
-    try {
-      console.log(`[ImageService] Generating image with prompt: "${prompt.substring(0, 100)}..."`);
-      if (conversationHistory) {
-        console.log(`[ImageService] Using conversation history with ${conversationHistory.length} previous turns`);
-      }
-
-      // Build contents array - either flat for first turn, or structured for multi-turn
-      let contents: any;
-
-      if (conversationHistory && conversationHistory.length > 0) {
-        // Multi-turn: Build structured conversation with roles
-        contents = [...conversationHistory];
-
-        // Add new user message
-        const userParts: any[] = [];
-        
-        // Add reference images if provided
-        if (referenceImages && referenceImages.length > 0) {
-          for (const ref of referenceImages) {
-            userParts.push({
-              inlineData: {
-                mimeType: ref.mimeType,
-                data: ref.base64,
-              },
-            });
-          }
-        }
-        
-        userParts.push({ text: prompt });
-        
-        contents.push({
-          role: 'user',
-          parts: userParts,
-        });
-      } else {
-        // First turn: Use flat array format
-        const parts: any[] = [];
-
-        // Add reference images if provided
-        if (referenceImages && referenceImages.length > 0) {
-          for (const ref of referenceImages) {
-            parts.push({
-              inlineData: {
-                mimeType: ref.mimeType,
-                data: ref.base64,
-              },
-            });
-          }
-          parts.push({
-            text: `Using the reference image(s) above as style inspiration, generate an image: ${prompt}`,
-          });
-        } else {
-          parts.push({ text: prompt });
-        }
-
-        contents = parts;
-      }
-
-      const config: any = {
-        responseModalities: ['TEXT', 'IMAGE'],
-      };
-      if (aspectRatio) {
-        config.imageConfig = { aspectRatio };
-      }
-
-      const response = await this.client.models.generateContent({
-        model: this.model,
-        contents,
-        config,
-      });
-
-      // Extract image data and thought signatures from response
-      const candidate = response.candidates?.[0];
-      if (!candidate?.content?.parts) {
-        throw new Error('No content in image generation response');
-      }
-
-      const thoughtSignatures: string[] = [];
-      let imageBase64: string | null = null;
-      let imageMimeType: string = 'image/png';
-      const newConversationHistory = conversationHistory ? [...conversationHistory] : [];
-
-      // Build the model response with thought signatures for next turn
-      const modelParts: ConversationPart[] = [];
-
-      for (const part of candidate.content.parts) {
-        const partData: ConversationPart = {};
-
-        if (part.text) {
-          partData.text = part.text;
-        }
-
-        if (part.inlineData) {
-          partData.inlineData = {
-            mimeType: part.inlineData.mimeType || 'image/png',
-            data: part.inlineData.data as string,
-          };
-          imageBase64 = part.inlineData.data as string;
-          imageMimeType = part.inlineData.mimeType || 'image/png';
-        }
-
-        // Extract thought signature if present
-        const thoughtSig = (part as any).thoughtSignature;
-        if (thoughtSig) {
-          partData.thoughtSignature = thoughtSig;
-          thoughtSignatures.push(thoughtSig);
-        }
-
-        modelParts.push(partData);
-      }
-
-      // Add model response to conversation history
-      newConversationHistory.push({
-        role: 'user',
-        parts: conversationHistory && conversationHistory.length > 0
-          ? [{ text: prompt }]
-          : (referenceImages && referenceImages.length > 0
-              ? [
-                  ...referenceImages.map(ref => ({
-                    inlineData: {
-                      mimeType: ref.mimeType,
-                      data: ref.base64,
-                    },
-                  })),
-                  { text: prompt },
-                ]
-              : [{ text: prompt }]),
-      });
-      newConversationHistory.push({
-        role: 'model',
-        parts: modelParts,
-      });
-
-      if (!imageBase64) {
-        throw new Error('No image data in generation response. The model may have returned only text.');
-      }
-
-      console.log(`[ImageService] Image generated successfully (${imageMimeType})`);
-      if (thoughtSignatures.length > 0) {
-        console.log(`[ImageService] Captured ${thoughtSignatures.length} thought signature(s)`);
-      }
-
-      return {
-        base64: imageBase64,
-        mimeType: imageMimeType,
-        prompt,
-        thoughtSignatures: thoughtSignatures.length > 0 ? thoughtSignatures : undefined,
-        conversationHistory: newConversationHistory,
-      };
-    } catch (error: any) {
-      console.error('[ImageService] Image generation error:', error.message || error);
-      throw new Error(`Image generation failed: ${error.message || 'Unknown error'}`);
+    if (referenceImages?.length) {
+      console.log('[ImageService] Note: referenceImages not supported with Pollinations.ai — ignored');
     }
+    if (conversationHistory?.length) {
+      console.log('[ImageService] Note: conversationHistory not supported with Pollinations.ai — ignored');
+    }
+
+    const [w, h] = aspectRatioToDimensions(aspectRatio ?? '16:9');
+    const encodedPrompt = encodeURIComponent(prompt.slice(0, 1500));
+    const url = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${w}&height=${h}&model=flux&nologo=true&seed=${Date.now()}`;
+
+    console.log(`[ImageService] Generating image via Pollinations.ai (${w}×${h})...`);
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Pollinations.ai request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
+    const mimeType = response.headers.get('content-type') || 'image/jpeg';
+
+    console.log(`[ImageService] Image generated successfully via Pollinations.ai (${mimeType})`);
+    return { base64, mimeType, prompt };
   }
 
   /**

@@ -104,7 +104,7 @@ async function analyzeTheme(
 
   try {
     const response = await gemini.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: [{
         role: 'user',
         parts: [{ text: `${prompt}\n\nANALYZE THEME:\n${themeSummary}\n\nJSON:` }],

@@ -10,6 +10,7 @@
 import { Router, Request, Response } from 'express';
 import { Composio } from '@composio/core';
 import { GoogleGenAI } from '@google/genai';
+import { GeminiKeyRotator, parseGeminiApiKeys } from '../services/geminiKeyRotator.js';
 import { runPipeline, DEFAULT_CONFIG, NICHE_PRESETS, getNichePreset, DEFAULT_NICHE_CONTEXT } from '../services/noise2article/index.js';
 import type { PipelineConfig } from '../services/noise2article/index.js';
 import { listSavedArticles, getSavedArticle, deleteSavedArticle, updateArticleImage } from '../services/noise2article/storage.js';
@@ -20,7 +21,7 @@ const router = Router();
 
 // Lazy-init clients (initialized on first request after dotenv is loaded)
 let composio: Composio | null = null;
-let gemini: GoogleGenAI | null = null;
+let gemini: GeminiKeyRotator | null = null;
 
 function getComposio(): Composio {
   if (!composio) {
@@ -31,13 +32,20 @@ function getComposio(): Composio {
   return composio;
 }
 
-function getGemini(): GoogleGenAI {
+function getGemini(): GeminiKeyRotator {
   if (!gemini) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY not set');
-    gemini = new GoogleGenAI({ apiKey });
+    const keys = parseGeminiApiKeys();
+    if (!keys.length) throw new Error('GEMINI_API_KEY or GEMINI_API_KEYS not set');
+    gemini = new GeminiKeyRotator(keys);
   }
   return gemini;
+}
+
+/** Resolves the first available Gemini API key string (for ImageService constructor). */
+function getFirstGeminiKey(): string {
+  const keys = parseGeminiApiKeys();
+  if (!keys.length) throw new Error('GEMINI_API_KEY or GEMINI_API_KEYS not set');
+  return keys[0];
 }
 
 // ─── POST /discover — Run the full pipeline ─────────────────────────────────
@@ -87,7 +95,7 @@ router.post('/discover', async (req: Request, res: Response) => {
 
     const result = await runPipeline(
       getComposio(),
-      getGemini(),
+      getGemini() as unknown as GoogleGenAI,
       tavilyApiKey,
       String(userId),
       config,
@@ -149,21 +157,18 @@ router.post('/articles/:id/regenerate-image', async (req: Request, res: Response
     const article = await getSavedArticle(id);
     if (!article) return res.status(404).json({ success: false, error: 'Not found' });
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(500).json({ success: false, error: 'GEMINI_API_KEY not set' });
-
     const customPrompt = req.body?.prompt as string | undefined;
     const refB64 = req.body?.referenceImageBase64 as string | undefined;
     const refMime = req.body?.referenceImageMimeType as string | undefined;
 
-    const imageService = new ImageService(apiKey);
+    const imageService = new ImageService(getFirstGeminiKey());
 
     let prompt: string;
     if (customPrompt) {
       prompt = customPrompt;
     } else {
       // Use AI art director (auto mode) for better, unique images
-      prompt = await generateCreativePrompt(getGemini(), article.title, article.hook);
+      prompt = await generateCreativePrompt(getGemini() as unknown as GoogleGenAI, article.title, article.hook);
     }
 
     const refImages = refB64 && refMime ? [{ base64: refB64, mimeType: refMime }] : undefined;
@@ -187,9 +192,6 @@ router.post('/articles/:id/edit-image', async (req: Request, res: Response) => {
     const article = await getSavedArticle(id);
     if (!article) return res.status(404).json({ success: false, error: 'Not found' });
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(500).json({ success: false, error: 'GEMINI_API_KEY not set' });
-
     const editPrompt = req.body?.editPrompt as string;
     const conversationHistory = req.body?.conversationHistory as any[];
 
@@ -198,7 +200,7 @@ router.post('/articles/:id/edit-image', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'conversationHistory is required' });
     }
 
-    const imageService = new ImageService(apiKey);
+    const imageService = new ImageService(getFirstGeminiKey());
     const result = await imageService.editImage(editPrompt, {
       base64: '',
       mimeType: '',
@@ -225,9 +227,6 @@ router.post('/articles/:id/edit-image', async (req: Request, res: Response) => {
 // ─── POST /test-image — test master prompts with sample titles ──────────────
 router.post('/test-image', async (req: Request, res: Response) => {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return res.status(500).json({ success: false, error: 'GEMINI_API_KEY not set' });
-
     const title = String(req.body?.title || '').trim();
     const strategy = (req.body?.promptStrategy as ImagePromptStrategy) || 'auto';
     const refB64 = req.body?.referenceImageBase64 as string | undefined;
@@ -236,11 +235,11 @@ router.post('/test-image', async (req: Request, res: Response) => {
     if (!title) return res.status(400).json({ success: false, error: 'title is required' });
 
     const prompt = strategy === 'auto'
-      ? await generateCreativePrompt(getGemini(), title)
+      ? await generateCreativePrompt(getGemini() as unknown as GoogleGenAI, title)
       : buildMasterPrompt(title, strategy);
     const refImages = refB64 && refMime ? [{ base64: refB64, mimeType: refMime }] : undefined;
 
-    const imageService = new ImageService(apiKey);
+    const imageService = new ImageService(getFirstGeminiKey());
     const result = await imageService.generateImage(prompt, refImages, undefined, '16:9');
 
     return res.json({
