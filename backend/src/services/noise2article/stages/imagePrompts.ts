@@ -299,7 +299,7 @@ Style direction: ${styleHint}
 Analyze this article's core concept. Find a visual metaphor that captures it (NOT a literal depiction). Write a highly specific image prompt with exact colors, composition, and style. The system will pass this directly to an image generation model.`;
 
   const response = await gemini.models.generateContent({
-    model: 'gemini-3-pro-preview',
+    model: 'gemini-2.5-pro',
     contents: [{ role: 'user', parts: [{ text: `${ART_DIRECTOR_SYSTEM}\n\n${userContent}` }] }],
     config: { temperature: 0.92, maxOutputTokens: 700 },
   });

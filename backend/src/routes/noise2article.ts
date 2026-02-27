@@ -12,9 +12,10 @@ import { Composio } from '@composio/core';
 import { GoogleGenAI } from '@google/genai';
 import { GeminiKeyRotator, parseGeminiApiKeys } from '../services/geminiKeyRotator.js';
 import { runPipeline, DEFAULT_CONFIG, NICHE_PRESETS, getNichePreset, DEFAULT_NICHE_CONTEXT } from '../services/noise2article/index.js';
-import type { PipelineConfig } from '../services/noise2article/index.js';
-import { listSavedArticles, getSavedArticle, deleteSavedArticle, updateArticleImage, updateArticleNiche } from '../services/noise2article/storage.js';
-import { buildMasterPrompt, generateCreativePrompt, type ImagePromptStrategy } from '../services/noise2article/imagePrompts.js';
+import type { PipelineConfig, RepurposedPlatform } from '../services/noise2article/index.js';
+import { listSavedArticles, getSavedArticle, deleteSavedArticle, updateArticleImage, updateArticleNiche, updateArticleRepurposed } from '../services/noise2article/storage.js';
+import { repurposeFromArticle } from '../services/noise2article/stages/writer.js';
+import { buildMasterPrompt, generateCreativePrompt, type ImagePromptStrategy } from '../services/noise2article/stages/imagePrompts.js';
 import ImageService from '../services/imageService.js';
 
 const router = Router();
@@ -93,6 +94,9 @@ router.post('/discover', async (req: Request, res: Response) => {
     }
     if (req.body?.twitterAccounts && Array.isArray(req.body.twitterAccounts)) {
       config.twitterAccounts = req.body.twitterAccounts;
+    }
+    if (req.body?.platforms && Array.isArray(req.body.platforms)) {
+      config.platforms = req.body.platforms as RepurposedPlatform[];
     }
 
     console.log(`\n[N2A] Starting Noise2Article pipeline for user ${userId}...`);
@@ -243,6 +247,33 @@ router.post('/articles/:id/edit-image', async (req: Request, res: Response) => {
 });
 
 // â”€â”€â”€ POST /test-image â€” test master prompts with sample titles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── POST /articles/:id/repurpose ─── generate platform content on-demand ────
+router.post('/articles/:id/repurpose', async (req: Request, res: Response) => {
+  try {
+    const id = String(req.params.id || '');
+    const platforms = req.body?.platforms as RepurposedPlatform[] | undefined;
+
+    if (!platforms || !Array.isArray(platforms) || platforms.length === 0) {
+      return res.status(400).json({ success: false, error: 'platforms array is required' });
+    }
+
+    const article = await getSavedArticle(id);
+    if (!article) return res.status(404).json({ success: false, error: 'Not found' });
+
+    const repurposed = await repurposeFromArticle(
+      getGemini() as unknown as GoogleGenAI,
+      article,
+      platforms,
+    );
+
+    const updated = await updateArticleRepurposed(id, repurposed);
+    return res.json({ success: true, data: updated });
+  } catch (err: any) {
+    console.error('[N2A] Repurpose error:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Repurpose failed' });
+  }
+});
+
 router.post('/test-image', async (req: Request, res: Response) => {
   try {
     const title = String(req.body?.title || '').trim();

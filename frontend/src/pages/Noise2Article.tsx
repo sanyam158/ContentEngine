@@ -217,13 +217,17 @@ function StageProgress({ stages, currentStage }: { stages: PipelineStageResult[]
 
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
+const PLATFORM_OPTIONS = [
+  { value: 'linkedin',    label: 'LinkedIn Post' },
+  { value: 'instagram',   label: 'Instagram Caption' },
+  { value: 'shortScript', label: 'Short Form Script' },
+];
+
 const NICHE_OPTIONS = [
   { value: 'ai-tech',           label: 'AI & Tech' },
   { value: 'personal-finance',  label: 'Personal Finance' },
   { value: 'health-wellness',   label: 'Health & Wellness' },
-  { value: 'digital-marketing', label: 'Digital Marketing' },
-  { value: 'productivity',      label: 'Productivity & Tools' },
-  { value: 'travel',            label: 'Travel' },
+{ value: 'travel',            label: 'Travel' },
   { value: 'geopolitics',       label: 'Geopolitics' },
   { value: 'hinduism',          label: 'Hinduism & Indian Culture' },
   { value: 'stock-market',      label: 'Stock Market & Investing' },
@@ -236,6 +240,7 @@ export function Noise2Article() {
   const [currentStage, setCurrentStage] = useState('');
   const [activeTab, setActiveTab] = useState<'articles' | 'themes'>('articles');
   const [selectedNiche, setSelectedNiche] = useState('ai-tech');
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
 
   const handleDiscover = async () => {
     setLoading(true);
@@ -250,7 +255,7 @@ export function Noise2Article() {
       { stage: 'gatekeeper', delay: 12000 },
       { stage: 'synthesis', delay: 25000 },
       { stage: 'enrichment', delay: 40000 },
-      { stage: 'writing', delay: 60000 },
+      { stage: 'writing', delay: 90000 },
     ];
     const timeouts: ReturnType<typeof setTimeout>[] = [];
     for (const { stage, delay } of stageTimers) {
@@ -258,7 +263,7 @@ export function Noise2Article() {
     }
 
     try {
-      const resp = await apiService.discoverIdeas({ niche: selectedNiche });
+      const resp = await apiService.discoverIdeas({ niche: selectedNiche, platforms: selectedPlatforms });
       if (resp.success) {
         setResult(resp.data);
       } else {
@@ -333,6 +338,28 @@ export function Noise2Article() {
               <button onClick={handleDiscover} disabled={loading} className="btn-primary px-8 text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                 Generate Article
               </button>
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Also generate</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 justify-center">
+                {PLATFORM_OPTIONS.map((p) => (
+                  <label key={p.value} className="flex items-center gap-1.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={selectedPlatforms.includes(p.value)}
+                      onChange={(e) => {
+                        setSelectedPlatforms(prev =>
+                          e.target.checked ? [...prev, p.value] : prev.filter(v => v !== p.value)
+                        );
+                      }}
+                      disabled={loading}
+                      className="w-3 h-3 rounded border border-white/20 bg-white/5 accent-red-500 disabled:opacity-50"
+                    />
+                    <span className="text-xs text-zinc-400 group-hover:text-zinc-200 transition">{p.label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
                         <p className="text-xs text-zinc-500">

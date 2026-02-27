@@ -9,7 +9,7 @@
  */
 
 import Parser from 'rss-parser';
-import { RawPost } from './types.js';
+import { RawPost } from '../types.js';
 
 type RssItem = {
   title?: string;

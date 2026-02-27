@@ -12,7 +12,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import crypto from 'crypto';
-import { Theme, GeneratedArticle, NicheContext, DEFAULT_NICHE_CONTEXT } from './types.js';
+import { Theme, GeneratedArticle, NicheContext, DEFAULT_NICHE_CONTEXT, RepurposedPlatform, getNichePreset } from '../types.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -233,7 +233,7 @@ ${link ? `URL: ${link}` : ''}`;
 
   try {
     const response = await gemini.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-pro',
       contents: [
         { role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${userPrompt}` }] },
       ],
@@ -317,6 +317,95 @@ ${link ? `URL: ${link}` : ''}`;
   }
 }
 
+// ─── Platform Content Prompts ────────────────────────────────────────────────
+
+const PLATFORM_PROMPTS: Record<RepurposedPlatform, (context: string, brandVoice: string) => string> = {
+  linkedin: (context, brandVoice) =>
+    `You write LinkedIn posts for a ${brandVoice}. First-person, professional but warm, authentic — not corporate.\n\nWrite a LinkedIn post about:\n${context}\n\nRules:\n- Hook: 1-2 short punchy lines that make someone stop scrolling\n- Body: 3-4 insight paragraphs, max 3 lines each, heavy line breaks\n- Close with a question or observation (NOT "what do you think?")\n- 3-5 relevant hashtags on the very last line ONLY\n- 200-320 words total\n- BANNED: "In today's world", "game-changing", "let's dive in", "leverage", "utilize", "excited to share"\n- Output plain text only — no markdown like ** or ##`,
+
+  instagram: (context, brandVoice) =>
+    `You write Instagram Reels captions for a ${brandVoice}. Hook-first, emoji bullets, optimized for saves and shares.\n\nWrite an Instagram Reels caption for a short video about:\n${context}\n\nRules:\n- Line 1 (max 125 chars): hook visible before "more" tap — a question, bold stat, or provocative claim\n- 3-4 paragraphs using emojis as visual bullets (📌🔥💡⚡ etc.)\n- One CTA line: "Save this 📌" or "Share with someone building this"\n- Final line only: 15-20 hashtags (mix of niche and broad, no spaces in tags)\n- 150-250 words total (excluding hashtags)\n- Output plain text only`,
+
+  shortScript: (context, brandVoice) =>
+    `You write short-form video scripts (TikTok/Reels/YouTube Shorts) for a ${brandVoice}. Spoken-word style, 60-second max.\n\nWrite a short-form video script about:\n${context}\n\nRules:\n- Label sections: [HOOK] [BODY] [CTA]\n- [HOOK] (3 sec): First sentence only — question, surprising stat, or bold claim\n- [BODY] (40 sec): 2-3 rapid-fire insights, 2-3 sentences each\n- [CTA] (5 sec): Simple follow or save prompt\n- Written as SPOKEN WORD — contractions, punchy, short sentences\n- 100-140 words total\n- BANNED: "In today's video", "make sure to like and subscribe", "without further ado"\n- Output the labeled script only`,
+};
+
+async function generatePlatformContent(
+  gemini: GoogleGenAI,
+  platform: RepurposedPlatform,
+  context: string,
+  nicheContext: NicheContext,
+): Promise<string | null> {
+  const prompt = PLATFORM_PROMPTS[platform](context, nicheContext.brandVoice);
+  try {
+    const response = await gemini.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: { temperature: 0.85, maxOutputTokens: 1024 },
+    });
+    const text = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return text && text.length > 30 ? text : null;
+  } catch (err: any) {
+    log(`Platform content FAILED (${platform}): ${err.message}`);
+    return null;
+  }
+}
+
+/**
+ * Generate platform-specific repurposed content from a theme (pipeline-native, Path A).
+ * Runs in parallel with writeArticle — same enriched theme data, highest quality.
+ */
+export async function writeRepurposedContent(
+  gemini: GoogleGenAI,
+  theme: Theme,
+  nicheContext: NicheContext = DEFAULT_NICHE_CONTEXT,
+  platforms: RepurposedPlatform[],
+): Promise<GeneratedArticle['repurposed']> {
+  if (!platforms.length) return undefined;
+
+  const sources = theme.posts.slice(0, 4);
+  const sourceSummary = sources.map(p => `- "${p.title}" (${p.source})`).join('\n');
+  const tavilySnippets = (theme.tavilyContext || []).slice(0, 2)
+    .map(ctx => `- ${ctx.title}: ${ctx.snippet.slice(0, 200)}`).join('\n');
+
+  const context = `Topic: ${theme.name}\nCore insight: ${theme.description}\nKey sources:\n${sourceSummary}${tavilySnippets ? `\nAdditional context:\n${tavilySnippets}` : ''}`;
+
+  const results: GeneratedArticle['repurposed'] = {};
+
+  await Promise.all(platforms.map(async (platform) => {
+    const text = await generatePlatformContent(gemini, platform, context, nicheContext);
+    if (text) results[platform] = text;
+  }));
+
+  log(`Repurposed: generated ${Object.keys(results).length}/${platforms.length} platform formats`);
+  return Object.keys(results).length ? results : undefined;
+}
+
+/**
+ * Generate platform-specific repurposed content from a saved article (on-demand, Path B).
+ * Uses article text as input — slightly lower quality than pipeline-native but works on any saved article.
+ */
+export async function repurposeFromArticle(
+  gemini: GoogleGenAI,
+  article: GeneratedArticle,
+  platforms: RepurposedPlatform[],
+): Promise<GeneratedArticle['repurposed']> {
+  if (!platforms.length) return undefined;
+
+  const nicheCtx = (article.niche ? getNichePreset(article.niche)?.context : undefined) ?? DEFAULT_NICHE_CONTEXT;
+  const context = `Topic: ${article.title}\nCore content: ${article.xText.slice(0, 600)}\nTags: ${(article.tags || []).join(', ')}`;
+
+  const results: GeneratedArticle['repurposed'] = {};
+
+  await Promise.all(platforms.map(async (platform) => {
+    const text = await generatePlatformContent(gemini, platform, context, nicheCtx);
+    if (text) results[platform] = text;
+  }));
+
+  log(`Repurposed (from article): generated ${Object.keys(results).length}/${platforms.length} platform formats`);
+  return Object.keys(results).length ? results : undefined;
+}
+
 /**
  * Write articles for the top N themes
  */
@@ -325,13 +414,20 @@ export async function writeArticles(
   themes: Theme[],
   count: number = 2,
   nicheContext: NicheContext = DEFAULT_NICHE_CONTEXT,
+  platforms: RepurposedPlatform[] = [],
 ): Promise<GeneratedArticle[]> {
   const articles: GeneratedArticle[] = [];
   const topThemes = themes.slice(0, count);
 
   for (const theme of topThemes) {
-    const article = await writeArticle(gemini, theme, nicheContext);
+    const [article, repurposed] = await Promise.all([
+      writeArticle(gemini, theme, nicheContext),
+      platforms.length ? writeRepurposedContent(gemini, theme, nicheContext, platforms) : Promise.resolve(undefined),
+    ]);
     if (article) {
+      if (repurposed && Object.keys(repurposed).length > 0) {
+        article.repurposed = repurposed;
+      }
       articles.push(article);
     }
   }

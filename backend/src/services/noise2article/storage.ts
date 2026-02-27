@@ -269,6 +269,18 @@ export async function updateArticleNiche(id: string, niche: string): Promise<Gen
   return existing[idx];
 }
 
+export async function updateArticleRepurposed(
+  id: string,
+  repurposed: GeneratedArticle['repurposed'],
+): Promise<GeneratedArticle | null> {
+  const existing = await readAll();
+  const idx = existing.findIndex(a => a.id === id);
+  if (idx < 0) return null;
+  existing[idx] = { ...existing[idx], repurposed: { ...existing[idx].repurposed, ...repurposed } };
+  await writeAll(existing);
+  return existing[idx];
+}
+
 export async function updateArticleImage(id: string, image: { base64: string; mimeType: string; prompt: string }): Promise<GeneratedArticle | null> {
   const existing = await readAll();
   const idx = existing.findIndex(a => a.id === id);

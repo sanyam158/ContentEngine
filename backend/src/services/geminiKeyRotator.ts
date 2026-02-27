@@ -16,10 +16,10 @@
  *     keys again at the lower tier.
  *
  *     Downgrade chain:
- *       gemini-3-flash-preview  →  gemini-2.0-flash  →  gemini-2.0-flash-lite
- *       gemini-3-pro-preview    →  gemini-3-flash-preview  (→ continues above)
- *       gemini-2.0-flash        →  gemini-2.0-flash-lite
- *       gemini-2.0-flash-lite   →  (no further fallback, throws)
+ *       gemini-2.5-pro  →  gemini-3-flash-preview  →  gemini-2.5-flash  →  gemini-2.5-flash-lite
+ *       gemini-3-flash-preview  →  gemini-2.5-flash  (→ continues above)
+ *       gemini-2.5-flash        →  gemini-2.5-flash-lite
+ *       gemini-2.5-flash-lite   →  (no further fallback, throws)
  *
  * Usage in .env:
  *   GEMINI_API_KEYS=key1,key2,key3    ← preferred (multi-key)
@@ -39,9 +39,9 @@ import { GoogleGenAI } from '@google/genai';
  * exhausted at the current tier.  Missing entry = no further fallback.
  */
 const MODEL_FALLBACKS: Record<string, string> = {
-  'gemini-3-pro-preview':   'gemini-3-flash-preview',
-  'gemini-3-flash-preview': 'gemini-2.0-flash',
-  'gemini-2.0-flash':       'gemini-2.0-flash-lite',
+  'gemini-2.5-pro':      'gemini-3-flash-preview',
+  'gemini-3-flash-preview': 'gemini-2.5-flash',
+  'gemini-2.5-flash':    'gemini-2.5-flash-lite',
 };
 
 // ─── Quota error detection ───────────────────────────────────────────────────

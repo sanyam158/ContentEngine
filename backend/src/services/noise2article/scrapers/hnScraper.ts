@@ -12,7 +12,7 @@
  */
 
 import axios from 'axios';
-import { RawPost } from './types.js';
+import { RawPost } from '../types.js';
 
 const HN_API_BASE = 'https://hn.algolia.com/api/v1';
 

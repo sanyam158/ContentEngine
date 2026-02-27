@@ -16,7 +16,7 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { RawPost, FilteredPost, NicheContext, DEFAULT_NICHE_CONTEXT } from './types.js';
+import { RawPost, FilteredPost, NicheContext, DEFAULT_NICHE_CONTEXT } from '../types.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -200,7 +200,7 @@ export async function llmGatekeeper(
 
     try {
       const response = await gemini.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-2.5-pro',
         contents: [{
           role: 'user',
           parts: [{ text: `${gatekeeperPrompt}\n\nPOSTS:\n${JSON.stringify(postsForLLM)}\n\nJSON:` }],

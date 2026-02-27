@@ -16,7 +16,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import axios from 'axios';
-import { Theme, TavilyContextItem, NicheContext, DEFAULT_NICHE_CONTEXT } from './types.js';
+import { Theme, TavilyContextItem, NicheContext, DEFAULT_NICHE_CONTEXT } from '../types.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -104,7 +104,7 @@ async function analyzeTheme(
 
   try {
     const response = await gemini.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-pro',
       contents: [{
         role: 'user',
         parts: [{ text: `${prompt}\n\nANALYZE THEME:\n${themeSummary}\n\nJSON:` }],

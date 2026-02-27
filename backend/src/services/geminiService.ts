@@ -17,7 +17,7 @@ interface GeneratedThread {
 }
 
 class GeminiService {
-  private model = 'gemini-3-flash-preview';
+  private model = 'gemini-2.5-flash';
   private apiKey: string;
   private client: GoogleGenAI;
 

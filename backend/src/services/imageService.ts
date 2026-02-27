@@ -261,7 +261,7 @@ Write the image prompt. Remember: NO text/words in the image, NO generic AI slop
 
     try {
       const response = await this.client.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-2.5-pro',
         contents: [{ role: 'user', parts: [{ text: `${COVER_ART_DIRECTOR}\n\n${userMessage}` }] }],
         config: { temperature: 0.9, maxOutputTokens: 600 },
       });
@@ -327,7 +327,7 @@ Important: Do NOT include any text, words, letters, or typography in the image. 
     } else {
       try {
         const response = await this.client.models.generateContent({
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-2.5-pro',
           contents: [{ role: 'user', parts: [{ text: `You are a visual art director. The user wants an image for social media with this brief: "${customPrompt}"
 
 Write a detailed, specific image generation prompt that brings this to life. Include:

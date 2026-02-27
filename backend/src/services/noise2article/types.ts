@@ -8,6 +8,8 @@
 
 export type PostSource = 'reddit' | 'hn' | 'twitter' | 'rss';
 
+export type RepurposedPlatform = 'linkedin' | 'instagram' | 'shortScript';
+
 export type SubredditTier = 1 | 2 | 3;
 
 export interface SubredditConfig {
@@ -72,6 +74,8 @@ export interface PipelineConfig {
   gatekeeperBatchSize: number;
   /** Niche context for LLM prompt injection. Defaults to ai-tech if omitted. */
   nicheContext?: NicheContext;
+  /** Additional platforms to generate repurposed content for alongside the main article */
+  platforms?: RepurposedPlatform[];
 }
 
 /** Default pipeline configuration */
@@ -221,76 +225,6 @@ export const NICHE_PRESETS: Record<string, NichePreset> = {
         'https://www.nih.gov/rss/news/nih-news.rss',
         'https://www.sciencedaily.com/rss/health_medicine.xml',
         'https://feeds.feedburner.com/PrecisionNutrition',
-      ],
-    },
-  },
-
-  'digital-marketing': {
-    context: {
-      id: 'digital-marketing',
-      displayName: 'Digital Marketing',
-      brandVoice: 'no-fluff digital marketing media brand for growth practitioners',
-      platformDescriptor: 'digital marketing and growth content platform',
-      specificityExamples: 'GA4, Ahrefs, Semrush, Meta Ads, ROAS, CAC, LTV, open rate, click-through rate, A/B test',
-      hnFrontPagePattern: 'seo|\\bppc\\b|email marketing|conversion rate|\\bctr\\b|\\broas\\b|\\bcac\\b|affiliate|growth hacking|content marketing|funnel',
-      bangerDefinition: 'campaign results with real ROAS, CTR, or conversion rate numbers and the exact strategy behind them',
-    },
-    configOverrides: {
-      subreddits: [
-        { name: 'marketing', tier: 1, minScore: 50, minComments: 0 },
-        { name: 'SEO', tier: 1, minScore: 30, minComments: 0 },
-        { name: 'PPC', tier: 1, minScore: 20, minComments: 0 },
-        { name: 'emailmarketing', tier: 2, minScore: 20, minComments: 0 },
-        { name: 'socialmedia', tier: 2, minScore: 30, minComments: 0 },
-        { name: 'content_marketing', tier: 2, minScore: 20, minComments: 0 },
-        { name: 'Analytics', tier: 3, minScore: 20, minComments: 10 },
-        { name: 'growthhacking', tier: 3, minScore: 20, minComments: 20 },
-      ],
-      hnQueries: ['SEO OR content marketing strategy', 'paid ads OR email marketing growth'],
-      rssFeeds: [
-        'https://moz.com/blog/feed',
-        'https://neilpatel.com/blog/feed/',
-        'https://www.searchenginejournal.com/feed/',
-        'https://backlinko.com/feed',
-        'https://www.socialmediaexaminer.com/feed/',
-        'https://growandconvert.com/feed/',
-        'https://feeds.feedburner.com/copyblogger',
-        'https://blog.hubspot.com/marketing/rss.xml',
-      ],
-    },
-  },
-
-  'productivity': {
-    context: {
-      id: 'productivity',
-      displayName: 'Productivity & Tools',
-      brandVoice: 'opinionated productivity media brand for knowledge workers',
-      platformDescriptor: 'productivity and tools content platform',
-      specificityExamples: 'Obsidian, Notion, Logseq, Raycast, Keyboard Maestro, Zapier, Linear, GTD, Zettelkasten, time-blocking',
-      hnFrontPagePattern: 'productivity|obsidian|notion|\\bpkm\\b|workflow|automation|focus|deep work|second brain|task manager|note.?taking|zettelkasten',
-      bangerDefinition: 'concrete system or workflow change with measurable time saved or output increase',
-    },
-    configOverrides: {
-      subreddits: [
-        { name: 'productivity', tier: 1, minScore: 50, minComments: 0 },
-        { name: 'ObsidianMD', tier: 1, minScore: 20, minComments: 0 },
-        { name: 'Notion', tier: 1, minScore: 20, minComments: 0 },
-        { name: 'PKMS', tier: 2, minScore: 20, minComments: 0 },
-        { name: 'nocode', tier: 2, minScore: 20, minComments: 0 },
-        { name: 'macapps', tier: 2, minScore: 20, minComments: 0 },
-        { name: 'getdisciplined', tier: 3, minScore: 30, minComments: 20 },
-        { name: 'digitalnomad', tier: 3, minScore: 20, minComments: 10 },
-      ],
-      hnQueries: ['productivity tool OR workflow automation', 'note-taking OR knowledge management'],
-      rssFeeds: [
-        'https://nesslabs.com/feed',
-        'https://www.raptitude.com/feed/',
-        'https://todoist.com/blog/feeds/latest/',
-        'https://zapier.com/blog/feeds/latest/',
-        'https://thesweetsetup.com/feed/',
-        'https://www.relay.fm/cortex/feed',
-        'https://feeds.feedburner.com/StudyHacks',
-        'https://feeds.feedburner.com/asian-efficiency',
       ],
     },
   },
@@ -534,6 +468,12 @@ export interface GeneratedArticle {
   themeName: string;
   /** Niche ID this article was generated for (e.g. "ai-tech", "geopolitics") */
   niche?: string;
+  /** Platform-specific repurposed content generated from this article */
+  repurposed?: {
+    linkedin?: string;
+    instagram?: string;
+    shortScript?: string;
+  };
 }
 
 // ─── Pipeline Result ────────────────────────────────────────────────────────

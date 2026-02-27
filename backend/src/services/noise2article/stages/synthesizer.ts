@@ -12,7 +12,7 @@
  */
 
 import { GoogleGenAI } from '@google/genai';
-import { FilteredPost, Theme, NicheContext, DEFAULT_NICHE_CONTEXT } from './types.js';
+import { FilteredPost, Theme, NicheContext, DEFAULT_NICHE_CONTEXT } from '../types.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -140,7 +140,7 @@ export async function synthesizeAndRank(
 
   try {
     const response = await gemini.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-2.5-pro',
       contents: [{
         role: 'user',
         parts: [{ text: `${prompt}\n\nPOSTS (${topPosts.length}):\n${JSON.stringify(postsForLLM)}\n\nJSON:` }],

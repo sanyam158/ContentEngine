@@ -19,16 +19,16 @@
 import { Composio } from '@composio/core';
 import { GoogleGenAI } from '@google/genai';
 import { PipelineConfig, PipelineResult, PipelineStageResult, RawPost, GeneratedArticle, DEFAULT_CONFIG, DEFAULT_NICHE_CONTEXT } from './types.js';
-import { scrapeReddit } from './redditScraper.js';
-import { scrapeHackerNews } from './hnScraper.js';
-import { scrapeTwitter } from './twitterScraper.js';
-import { scrapeRss } from './rssScraper.js';
-import { preFilter, llmGatekeeper } from './gatekeeper.js';
-import { synthesizeAndRank } from './synthesizer.js';
-import { enrichThemes } from './enricher.js';
-import { writeArticles } from './writer.js';
+import { scrapeReddit } from './scrapers/redditScraper.js';
+import { scrapeHackerNews } from './scrapers/hnScraper.js';
+import { scrapeTwitter } from './scrapers/twitterScraper.js';
+import { scrapeRss } from './scrapers/rssScraper.js';
+import { preFilter, llmGatekeeper } from './stages/gatekeeper.js';
+import { synthesizeAndRank } from './stages/synthesizer.js';
+import { enrichThemes } from './stages/enricher.js';
+import { writeArticles } from './stages/writer.js';
 import { saveGeneratedArticles, listSavedArticleSourceUrls, normalizeUrl } from './storage.js';
-import { generateCreativePrompt } from './imagePrompts.js';
+import { generateCreativePrompt } from './stages/imagePrompts.js';
 import ImageService from '../imageService.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -288,7 +288,7 @@ export async function runPipeline(
   const writeStart = Date.now();
   let articles: GeneratedArticle[] = [];
   if (articlesToGenerate > 0) {
-    const textArticles = await writeArticles(gemini, enrichedThemes, articlesToGenerate, nicheContext);
+    const textArticles = await writeArticles(gemini, enrichedThemes, articlesToGenerate, nicheContext, config.platforms ?? []);
     articles = await attachArticleImages(gemini, textArticles);
   }
   try {

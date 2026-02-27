@@ -213,6 +213,7 @@ export const apiService = {
     twitterAccounts?: string[];
     topThemesToEnrich?: number;
     niche?: string;
+    platforms?: string[];
   }): Promise<{ success: boolean; data?: any; error?: string; durationMs?: number }> => {
     const response = await api.post('/n2a/discover', options || {}, {
       timeout: 600000,
@@ -257,6 +258,19 @@ export const apiService = {
       `/n2a/articles/${encodeURIComponent(id)}/edit-image`,
       { editPrompt, conversationHistory },
       { timeout: 60000 }
+    );
+    return response.data;
+  },
+
+  // Generate repurposed platform content for an existing article
+  repurposeArticle: async (
+    id: string,
+    platforms: string[],
+  ): Promise<{ success: boolean; data?: any; error?: string }> => {
+    const response = await api.post(
+      `/n2a/articles/${encodeURIComponent(id)}/repurpose`,
+      { platforms },
+      { timeout: 120000 },
     );
     return response.data;
   },

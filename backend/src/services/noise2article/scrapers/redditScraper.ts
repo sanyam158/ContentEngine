@@ -9,7 +9,7 @@
  */
 
 import { Composio } from '@composio/core';
-import { RawPost, SubredditConfig } from './types.js';
+import { RawPost, SubredditConfig } from '../types.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 

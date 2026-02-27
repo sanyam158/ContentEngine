@@ -15,5 +15,6 @@ export type {
   SubredditConfig,
   NicheContext,
   NichePreset,
+  RepurposedPlatform,
 } from './types.js';
 export { DEFAULT_CONFIG, NICHE_PRESETS, DEFAULT_NICHE_CONTEXT, getNichePreset } from './types.js';

@@ -73,7 +73,7 @@ Respond in JSON:
 
     try {
       const response = await this.geminiClient.models.generateContent({
-        model: 'gemini-3-pro-preview',
+        model: 'gemini-2.5-pro',
         contents: [
           {
             role: 'user',

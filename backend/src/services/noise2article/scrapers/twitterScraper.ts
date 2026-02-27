@@ -10,7 +10,7 @@
 
 import { Composio } from '@composio/core';
 import axios from 'axios';
-import { RawPost } from './types.js';
+import { RawPost } from '../types.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
