@@ -454,7 +454,7 @@ export interface GeneratedArticle {
   threadTweets: string[];
   /** Optional generated header image */
   image?: {
-    base64: string;
+    base64?: string;
     mimeType: string;
     prompt: string;
   };
