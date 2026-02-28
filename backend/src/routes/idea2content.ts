@@ -8,6 +8,7 @@
  */
 
 import { Router, Request, Response } from 'express';
+import type { GoogleGenAI } from '@google/genai';
 import { GeminiKeyRotator, parseGeminiApiKeys } from '../services/geminiKeyRotator.js';
 import { runIdea2ContentPipeline } from '../services/idea2content/index.js';
 import { getNichePreset, DEFAULT_NICHE_CONTEXT } from '../services/noise2article/types.js';
@@ -67,7 +68,7 @@ router.post('/generate', async (req: Request, res: Response) => {
     console.log(`[Idea2Content] generate: niche=${nicheContext.id}, platforms=[${selectedPlatforms.join(', ')}], prompt="${prompt.slice(0, 60)}..."`);
 
     const result = await runIdea2ContentPipeline(
-      getGemini(),
+      getGemini() as unknown as GoogleGenAI,
       tavilyApiKey,
       prompt.trim(),
       nicheContext,

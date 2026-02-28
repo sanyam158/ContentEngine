@@ -96,8 +96,8 @@ class ImageService {
 
         // 503 = model is loading — wait the suggested time then retry
         if (res.status === 503) {
-          const err = await res.json().catch(() => ({}) as any);
-          const waitSec = Math.min(Math.ceil(err.estimated_time ?? 20), 40);
+          const loadingInfo = (await res.json().catch(() => ({}))) as { estimated_time?: number };
+          const waitSec = Math.min(Math.ceil(loadingInfo.estimated_time ?? 20), 40);
           console.log(`[ImageService] HuggingFace model loading — waiting ${waitSec}s...`);
           await new Promise(r => setTimeout(r, waitSec * 1000));
           continue; // don't count as a failed attempt
@@ -119,10 +119,14 @@ class ImageService {
         console.log('[ImageService] Image generated successfully via HuggingFace');
         return { base64, mimeType: contentType, prompt };
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         clearTimeout(timer);
-        const isAbort = err.name === 'AbortError';
-        lastError = isAbort ? new Error(`HuggingFace timed out after ${TIMEOUT_MS / 1000}s`) : err;
+        const isAbort = err instanceof Error && err.name === 'AbortError';
+        lastError = isAbort
+          ? new Error(`HuggingFace timed out after ${TIMEOUT_MS / 1000}s`)
+          : err instanceof Error
+            ? err
+            : new Error(String(err));
         console.warn(`[ImageService] HuggingFace attempt ${attempt} failed: ${lastError.message}`);
         if (attempt < MAX_ATTEMPTS) {
           await new Promise(r => setTimeout(r, 5_000));
@@ -171,10 +175,14 @@ class ImageService {
         console.log('[ImageService] Image generated successfully via Pollinations.ai');
         return { base64, mimeType: contentType, prompt };
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         clearTimeout(timer);
-        const isAbort = err.name === 'AbortError';
-        lastError = isAbort ? new Error(`Pollinations.ai timed out after ${TIMEOUT_MS / 1000}s`) : err;
+        const isAbort = err instanceof Error && err.name === 'AbortError';
+        lastError = isAbort
+          ? new Error(`Pollinations.ai timed out after ${TIMEOUT_MS / 1000}s`)
+          : err instanceof Error
+            ? err
+            : new Error(String(err));
         console.warn(`[ImageService] Pollinations attempt ${attempt} failed: ${lastError.message}`);
         if (attempt < MAX_ATTEMPTS) {
           await new Promise(r => setTimeout(r, RETRY_DELAY_MS));

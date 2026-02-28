@@ -218,9 +218,7 @@ export async function writeArticleFromIdea(
       // Fallback: use raw text as markdown body
       if (rawText.length > 100) {
         log('Falling back to raw text as article body');
-        const lines = rawText.split('\n');
-        const title = lines[0]?.replace(/^#+\s*/, '').replace(/^["']|["']$/g, '') || prompt;
-        return buildArticle({ title, rawText, prompt, research, nicheContext });
+        return buildArticle({ rawText, prompt, research, nicheContext });
       }
       return null;
     }
