@@ -260,13 +260,22 @@ router.post('/articles/:id/repurpose', async (req: Request, res: Response) => {
     const article = await getSavedArticle(id);
     if (!article) return res.status(404).json({ success: false, error: 'Not found' });
 
+    console.log(`[N2A] Repurpose: article "${article.title.slice(0, 50)}", platforms [${platforms.join(', ')}]`);
+
     const repurposed = await repurposeFromArticle(
       getGemini() as unknown as GoogleGenAI,
       article,
       platforms,
     );
 
+    if (!repurposed || Object.keys(repurposed).length === 0) {
+      console.error('[N2A] Repurpose: generation returned no content');
+      return res.status(500).json({ success: false, error: 'AI did not produce valid content. Check server logs.' });
+    }
+
+    console.log(`[N2A] Repurpose: saving ${Object.keys(repurposed).join(', ')} to article ${id}`);
     const updated = await updateArticleRepurposed(id, repurposed);
+    console.log(`[N2A] Repurpose: done. Keys: ${Object.keys(updated?.repurposed ?? {}).join(', ')}`);
     return res.json({ success: true, data: updated });
   } catch (err: any) {
     console.error('[N2A] Repurpose error:', err);

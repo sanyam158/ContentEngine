@@ -218,9 +218,8 @@ function StageProgress({ stages, currentStage }: { stages: PipelineStageResult[]
 // ─── Main Page ──────────────────────────────────────────────────────────────
 
 const PLATFORM_OPTIONS = [
-  { value: 'linkedin',    label: 'LinkedIn Post' },
-  { value: 'instagram',   label: 'Instagram Caption' },
-  { value: 'shortScript', label: 'Short Form Script' },
+  { value: 'linkedin',  label: 'LinkedIn Post' },
+  { value: 'instagram', label: 'Instagram Caption' },
 ];
 
 const NICHE_OPTIONS = [

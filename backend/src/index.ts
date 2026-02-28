@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import authRoutes from './routes/auth.js';
 import apiRoutes from './routes/api.js';
 import n2aRoutes from './routes/noise2article.js';
+import i2cRoutes from './routes/idea2content.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import { validateEnvVariables } from './utils/helpers.js';
 
@@ -55,6 +56,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api', requireAuth, apiRoutes);
 app.use('/api/n2a', requireAuth, n2aRoutes);
+app.use('/api/i2c', requireAuth, i2cRoutes);
 
 // Health check root endpoint
 app.get('/', (_req: Request, res: Response) => {

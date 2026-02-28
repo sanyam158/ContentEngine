@@ -151,9 +151,15 @@ CRITICAL: Output ONLY the JSON object. No markdown fences, no explanation.`;
 
 // ─── JSON Parser ────────────────────────────────────────────────────────────
 
+function stripTrailingCommas(s: string): string {
+  // Remove trailing commas before } or ] (Gemini sometimes emits these)
+  return s.replace(/,(\s*[}\]])/g, '$1');
+}
+
 function parseJsonResponse(text: string): any {
   // Strip markdown fences
   let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  cleaned = stripTrailingCommas(cleaned);
 
   // Try direct parse
   try { return JSON.parse(cleaned); } catch { /* fall through */ }
@@ -161,7 +167,7 @@ function parseJsonResponse(text: string): any {
   // Try extracting JSON object
   const objMatch = cleaned.match(/\{[\s\S]*\}/);
   if (objMatch) {
-    try { return JSON.parse(objMatch[0]); } catch { /* fall through */ }
+    try { return JSON.parse(stripTrailingCommas(objMatch[0])); } catch { /* fall through */ }
   }
 
   // Repair truncated JSON
@@ -317,38 +323,130 @@ ${link ? `URL: ${link}` : ''}`;
   }
 }
 
-// ─── Platform Content Prompts ────────────────────────────────────────────────
+// ─── Repurposed Content (LinkedIn + Instagram) ──────────────────────────────
 
-const PLATFORM_PROMPTS: Record<RepurposedPlatform, (context: string, brandVoice: string) => string> = {
-  linkedin: (context, brandVoice) =>
-    `You write LinkedIn posts for a ${brandVoice}. First-person, professional but warm, authentic — not corporate.\n\nWrite a LinkedIn post about:\n${context}\n\nRules:\n- Hook: 1-2 short punchy lines that make someone stop scrolling\n- Body: 3-4 insight paragraphs, max 3 lines each, heavy line breaks\n- Close with a question or observation (NOT "what do you think?")\n- 3-5 relevant hashtags on the very last line ONLY\n- 200-320 words total\n- BANNED: "In today's world", "game-changing", "let's dive in", "leverage", "utilize", "excited to share"\n- Output plain text only — no markdown like ** or ##`,
+function buildRepurposedSystemPrompt(brandVoice: string): string {
+  return `You are a social media content writer for a ${brandVoice}. You write LinkedIn posts and Instagram captions that sound like a real person — specific, direct, grounded in real details.
 
-  instagram: (context, brandVoice) =>
-    `You write Instagram Reels captions for a ${brandVoice}. Hook-first, emoji bullets, optimized for saves and shares.\n\nWrite an Instagram Reels caption for a short video about:\n${context}\n\nRules:\n- Line 1 (max 125 chars): hook visible before "more" tap — a question, bold stat, or provocative claim\n- 3-4 paragraphs using emojis as visual bullets (📌🔥💡⚡ etc.)\n- One CTA line: "Save this 📌" or "Share with someone building this"\n- Final line only: 15-20 hashtags (mix of niche and broad, no spaces in tags)\n- 150-250 words total (excluding hashtags)\n- Output plain text only`,
+LINKEDIN RULES:
+- Hook: 1-2 short punchy lines that stop scrolling — bold claim, specific number, or unexpected observation
+- Body: 3-5 short paragraphs (max 3 lines each), heavy line breaks, at least one concrete detail (number, tool name, outcome) per paragraph
+- Close: direct question or sharp observation — NOT "what do you think?" or "drop a comment below"
+- Hashtags: 3-5, on the final line only
+- Length: 200-320 words total
+- Tone: first-person, professional but warm, reads like a smart practitioner sharing a real insight
+- BANNED: "excited to share", "game-changing", "leverage", "utilize", "In today's world", "let's dive in", "thrilled to announce", "paradigm shift", "robust", "seamless"
+- Plain text only — no ** or ## symbols
 
-  shortScript: (context, brandVoice) =>
-    `You write short-form video scripts (TikTok/Reels/YouTube Shorts) for a ${brandVoice}. Spoken-word style, 60-second max.\n\nWrite a short-form video script about:\n${context}\n\nRules:\n- Label sections: [HOOK] [BODY] [CTA]\n- [HOOK] (3 sec): First sentence only — question, surprising stat, or bold claim\n- [BODY] (40 sec): 2-3 rapid-fire insights, 2-3 sentences each\n- [CTA] (5 sec): Simple follow or save prompt\n- Written as SPOKEN WORD — contractions, punchy, short sentences\n- 100-140 words total\n- BANNED: "In today's video", "make sure to like and subscribe", "without further ado"\n- Output the labeled script only`,
-};
+INSTAGRAM RULES:
+- Hook: 10-15 words max. Bold claim, surprising stat, or direct question. This will be text overlaid on the image — make it punchy enough to stop scrolling in 1 second. No hashtags in the hook.
+- Caption: 150-250 words. Informative and specific — reads like a real person explaining something useful. Conversational paragraphs.
+- Emojis: use sparingly and only when they add genuine meaning — not as bullets or decoration
+- Hashtags: 10-15, on the very final line only. Mix niche-specific + broad tags.
+- Plain text only`;
+}
 
-async function generatePlatformContent(
+const REPURPOSED_USER_PROMPT = `Write a LinkedIn post and Instagram caption about the topic below.
+Use the same source material that would go into a full article — pull specific details, numbers, and insights from it.
+
+TOPIC/THEME: {THEME_NAME}
+THEME DESCRIPTION: {THEME_DESCRIPTION}
+
+RAW MATERIAL (contributing posts from Reddit, HN, Twitter, RSS):
+{RAW_MATERIALS}
+
+ADDITIONAL CONTEXT (from web research):
+{TAVILY_CONTEXT}
+
+SELF-CHECK before outputting:
+- Does the LinkedIn hook make you want to read on? Would you stop scrolling?
+- Does every paragraph have a concrete detail — a number, tool name, specific outcome?
+- Is the Instagram hook punchy enough to work as 10-word image text?
+- Does the caption read like a real person wrote it, not a content template?
+
+OUTPUT FORMAT (strict JSON):
+{
+  "linkedin": "Full LinkedIn post as plain text. Hook first, then body with heavy line breaks, then 3-5 hashtags on the final line only.",
+  "instagram_hook": "10-15 word punchy hook for image overlay. Bold claim or surprising stat. No hashtags.",
+  "instagram_caption": "Full Instagram caption 150-250 words. Informative, specific paragraphs. 10-15 hashtags on the very last line only."
+}
+
+CRITICAL: Output ONLY the JSON object. No markdown fences, no explanation.`;
+
+const REPURPOSED_FROM_ARTICLE_USER_PROMPT = `Write a LinkedIn post and Instagram caption about the article below.
+Pull specific details, numbers, and insights directly from the content.
+
+TITLE: {TITLE}
+
+ARTICLE CONTENT:
+{CONTENT}
+
+TAGS: {TAGS}
+
+SELF-CHECK before outputting:
+- Does the LinkedIn hook make you want to read on? Would you stop scrolling?
+- Does every paragraph have a concrete detail — a number, tool name, specific outcome?
+- Is the Instagram hook punchy enough to work as 10-word image text?
+- Does the caption read like a real person wrote it, not a content template?
+
+OUTPUT FORMAT (strict JSON):
+{
+  "linkedin": "Full LinkedIn post as plain text. Hook first, then body with heavy line breaks, then 3-5 hashtags on the final line only.",
+  "instagram_hook": "10-15 word punchy hook for image overlay. Bold claim or surprising stat. No hashtags.",
+  "instagram_caption": "Full Instagram caption 150-250 words. Informative, specific paragraphs. 10-15 hashtags on the very last line only."
+}
+
+CRITICAL: Output ONLY the JSON object. No markdown fences, no explanation.`;
+
+function parseRepurposedJson(text: string): { linkedin?: string; instagram_hook?: string; instagram_caption?: string } | null {
+  let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+  cleaned = stripTrailingCommas(cleaned);
+  try { return JSON.parse(cleaned); } catch { /* fall through */ }
+  const objMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (objMatch) {
+    try { return JSON.parse(stripTrailingCommas(objMatch[0])); } catch { /* fall through */ }
+  }
+  return null;
+}
+
+async function callRepurposedGemini(
   gemini: GoogleGenAI,
-  platform: RepurposedPlatform,
-  context: string,
-  nicheContext: NicheContext,
-): Promise<string | null> {
-  const prompt = PLATFORM_PROMPTS[platform](context, nicheContext.brandVoice);
-  try {
-    const response = await gemini.models.generateContent({
-      model: 'gemini-2.5-pro',
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      config: { temperature: 0.85, maxOutputTokens: 1024 },
-    });
-    const text = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    return text && text.length > 30 ? text : null;
-  } catch (err: any) {
-    log(`Platform content FAILED (${platform}): ${err.message}`);
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<{ linkedin?: string; instagram_hook?: string; instagram_caption?: string } | null> {
+  log('Repurposed: calling Gemini (single call, JSON output)...');
+  const response = await gemini.models.generateContent({
+    model: 'gemini-2.5-pro',
+    contents: [{ role: 'user', parts: [{ text: `${systemPrompt}\n\n---\n\n${userPrompt}` }] }],
+    config: { temperature: 0.85, maxOutputTokens: 2048 },
+  });
+   log(`Repurposed: Gemini Response: ${JSON.stringify(response, null, 2)}`);
+  const rawText = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+  log(`Repurposed: got ${rawText.length} chars from Gemini`);
+  if (!rawText) return null;
+  const parsed = parseRepurposedJson(rawText);
+  if (!parsed) {
+    log(`Repurposed: JSON parse failed. Raw (first 300): ${rawText}`);
     return null;
   }
+  log('Repurposed: JSON parsed successfully');
+  return parsed;
+}
+
+function buildRepurposedResult(
+  parsed: { linkedin?: string; instagram_hook?: string; instagram_caption?: string },
+  platforms: RepurposedPlatform[],
+): GeneratedArticle['repurposed'] {
+  const results: GeneratedArticle['repurposed'] = {};
+  if (platforms.includes('linkedin') && parsed.linkedin) {
+    results.linkedin = parsed.linkedin;
+    log(`Repurposed: linkedin generated (${parsed.linkedin.length} chars)`);
+  }
+  if (platforms.includes('instagram') && parsed.instagram_hook && parsed.instagram_caption) {
+    results.instagram = { hook: parsed.instagram_hook, caption: parsed.instagram_caption };
+    log(`Repurposed: instagram hook (${parsed.instagram_hook.length} chars) + caption (${parsed.instagram_caption.length} chars)`);
+  }
+  return results;
 }
 
 /**
@@ -363,27 +461,50 @@ export async function writeRepurposedContent(
 ): Promise<GeneratedArticle['repurposed']> {
   if (!platforms.length) return undefined;
 
-  const sources = theme.posts.slice(0, 4);
-  const sourceSummary = sources.map(p => `- "${p.title}" (${p.source})`).join('\n');
-  const tavilySnippets = (theme.tavilyContext || []).slice(0, 2)
-    .map(ctx => `- ${ctx.title}: ${ctx.snippet.slice(0, 200)}`).join('\n');
+  log(`Repurposed (Path A): theme="${theme.name}", platforms=[${platforms.join(', ')}]`);
 
-  const context = `Topic: ${theme.name}\nCore insight: ${theme.description}\nKey sources:\n${sourceSummary}${tavilySnippets ? `\nAdditional context:\n${tavilySnippets}` : ''}`;
+  // Build raw materials — same as writeArticle (8 posts max, body truncated to 300)
+  const sources = theme.posts.slice(0, 8);
+  const rawMaterials = sources
+    .map((p, i) => {
+      const src = p.source.toUpperCase();
+      const sub = p.subreddit ? ` (r/${p.subreddit})` : '';
+      const feed = p.feedName ? ` (feed: ${p.feedName})` : '';
+      const body = (p.body || '').slice(0, 300);
+      return `[${i + 1}] [${src}${sub}${feed}] "${p.title}"\nScore: ${p.score} | Banger: ${p.bangerScore}/10\n${body}${body.length >= 300 ? '...' : ''}`;
+    })
+    .join('\n\n---\n\n');
 
-  const results: GeneratedArticle['repurposed'] = {};
+  // Build Tavily context — 5 items, truncated to 300
+  const tavilyContext = theme.tavilyContext && theme.tavilyContext.length > 0
+    ? theme.tavilyContext.slice(0, 5).map((ctx, i) =>
+        `[${i + 1}] "${ctx.title}" - ${ctx.url}\n${(ctx.snippet || '').slice(0, 300)}`
+      ).join('\n\n')
+    : 'No additional context available.';
 
-  await Promise.all(platforms.map(async (platform) => {
-    const text = await generatePlatformContent(gemini, platform, context, nicheContext);
-    if (text) results[platform] = text;
-  }));
+  const userPrompt = REPURPOSED_USER_PROMPT
+    .replace('{THEME_NAME}', theme.name)
+    .replace('{THEME_DESCRIPTION}', theme.description)
+    .replace('{RAW_MATERIALS}', rawMaterials)
+    .replace('{TAVILY_CONTEXT}', tavilyContext);
 
-  log(`Repurposed: generated ${Object.keys(results).length}/${platforms.length} platform formats`);
-  return Object.keys(results).length ? results : undefined;
+  const systemPrompt = buildRepurposedSystemPrompt(nicheContext.brandVoice);
+
+  try {
+    const parsed = await callRepurposedGemini(gemini, systemPrompt, userPrompt);
+    if (!parsed) return undefined;
+    const results = buildRepurposedResult(parsed, platforms);
+    log(`Repurposed: generated ${Object.keys(results).length}/${platforms.length} platform formats`);
+    return Object.keys(results).length ? results : undefined;
+  } catch (err: any) {
+    log(`Repurposed FAILED: ${err.message}`);
+    return undefined;
+  }
 }
 
 /**
  * Generate platform-specific repurposed content from a saved article (on-demand, Path B).
- * Uses article text as input — slightly lower quality than pipeline-native but works on any saved article.
+ * Uses article text as input — works on any saved article.
  */
 export async function repurposeFromArticle(
   gemini: GoogleGenAI,
@@ -392,18 +513,27 @@ export async function repurposeFromArticle(
 ): Promise<GeneratedArticle['repurposed']> {
   if (!platforms.length) return undefined;
 
+  log(`Repurposed (Path B): article="${article.title.slice(0, 50)}", platforms=[${platforms.join(', ')}]`);
+
   const nicheCtx = (article.niche ? getNichePreset(article.niche)?.context : undefined) ?? DEFAULT_NICHE_CONTEXT;
-  const context = `Topic: ${article.title}\nCore content: ${article.xText.slice(0, 600)}\nTags: ${(article.tags || []).join(', ')}`;
 
-  const results: GeneratedArticle['repurposed'] = {};
+  const userPrompt = REPURPOSED_FROM_ARTICLE_USER_PROMPT
+    .replace('{TITLE}', article.title)
+    .replace('{CONTENT}', article.xText.slice(0, 1200))
+    .replace('{TAGS}', (article.tags || []).join(', '));
 
-  await Promise.all(platforms.map(async (platform) => {
-    const text = await generatePlatformContent(gemini, platform, context, nicheCtx);
-    if (text) results[platform] = text;
-  }));
+  const systemPrompt = buildRepurposedSystemPrompt(nicheCtx.brandVoice);
 
-  log(`Repurposed (from article): generated ${Object.keys(results).length}/${platforms.length} platform formats`);
-  return Object.keys(results).length ? results : undefined;
+  try {
+    const parsed = await callRepurposedGemini(gemini, systemPrompt, userPrompt);
+    if (!parsed) return undefined;
+    const results = buildRepurposedResult(parsed, platforms);
+    log(`Repurposed (from article): generated ${Object.keys(results).length}/${platforms.length} platform formats`);
+    return Object.keys(results).length ? results : undefined;
+  } catch (err: any) {
+    log(`Repurposed (from article) FAILED: ${err.message}`);
+    return undefined;
+  }
 }
 
 /**

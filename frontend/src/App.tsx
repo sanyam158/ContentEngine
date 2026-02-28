@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
 import { Script2Thread } from './pages/Script2Thread';
 import { Noise2Article } from './pages/Noise2Article';
+import { Idea2Content } from './pages/Idea2Content';
 import { SavedArticles } from './pages/SavedArticles';
 import { TestImagePrompts } from './pages/TestImagePrompts';
 import { Login } from './pages/Login';
@@ -71,6 +72,18 @@ function AppShell() {
                 Noise2Article
               </NavLink>
               <NavLink
+                to="/idea2content"
+                className={({ isActive }) =>
+                  `flex-1 text-center py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-red-600/20 text-red-400 border border-red-500/20'
+                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]'
+                  }`
+                }
+              >
+                Idea2Content
+              </NavLink>
+              <NavLink
                 to="/saved"
                 className={({ isActive }) =>
                   `flex-1 text-center py-2 px-3 rounded-lg text-sm font-medium transition-all ${
@@ -88,6 +101,7 @@ function AppShell() {
           <Routes>
             <Route path="/" element={<Script2Thread />} />
             <Route path="/noise2article" element={<Noise2Article />} />
+            <Route path="/idea2content" element={<Idea2Content />} />
             <Route path="/saved" element={<SavedArticles />} />
             <Route path="/test-image" element={<TestImagePrompts />} />
           </Routes>

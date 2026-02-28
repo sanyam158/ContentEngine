@@ -216,7 +216,7 @@ export const apiService = {
     platforms?: string[];
   }): Promise<{ success: boolean; data?: any; error?: string; durationMs?: number }> => {
     const response = await api.post('/n2a/discover', options || {}, {
-      timeout: 600000,
+      timeout: 1200000,
     });
     return response.data;
   },
@@ -257,7 +257,7 @@ export const apiService = {
     const response = await api.post(
       `/n2a/articles/${encodeURIComponent(id)}/edit-image`,
       { editPrompt, conversationHistory },
-      { timeout: 60000 }
+      { timeout: 120000 }
     );
     return response.data;
   },
@@ -281,6 +281,16 @@ export const apiService = {
     return response.data;
   },
 
+  // Idea2Content: generate article from a user prompt
+  generateFromIdea: async (options: {
+    prompt: string;
+    niche?: string;
+    platforms?: string[];
+  }): Promise<{ success: boolean; data?: any; error?: string }> => {
+    const response = await api.post('/i2c/generate', options, { timeout: 300000 });
+    return response.data;
+  },
+
   // Test master image prompts (no article required)
   testImagePrompt: async (options: {
     title: string;
@@ -288,7 +298,7 @@ export const apiService = {
     referenceImageBase64?: string;
     referenceImageMimeType?: string;
   }): Promise<{ success: boolean; data?: { base64: string; mimeType: string; prompt: string; strategy: string; title: string }; error?: string }> => {
-    const response = await api.post('/n2a/test-image', options, { timeout: 60000 });
+    const response = await api.post('/n2a/test-image', options, { timeout: 80000 });
     return response.data;
   },
 };

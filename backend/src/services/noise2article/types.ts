@@ -8,7 +8,7 @@
 
 export type PostSource = 'reddit' | 'hn' | 'twitter' | 'rss';
 
-export type RepurposedPlatform = 'linkedin' | 'instagram' | 'shortScript';
+export type RepurposedPlatform = 'linkedin' | 'instagram';
 
 export type SubredditTier = 1 | 2 | 3;
 
@@ -471,8 +471,7 @@ export interface GeneratedArticle {
   /** Platform-specific repurposed content generated from this article */
   repurposed?: {
     linkedin?: string;
-    instagram?: string;
-    shortScript?: string;
+    instagram?: { hook: string; caption: string };
   };
 }
 
