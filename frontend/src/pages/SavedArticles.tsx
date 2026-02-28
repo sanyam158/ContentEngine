@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import apiService from '../services/api';
 import { ArticleCard, type GeneratedArticle } from '../components/ArticleCard';
 
@@ -31,6 +31,12 @@ export function SavedArticles() {
   const [loadingArticle, setLoadingArticle] = useState(false);
   const [editingNicheId, setEditingNicheId] = useState<string | null>(null);
   const [savingNiche, setSavingNiche] = useState(false);
+
+  type TabId = 'all' | 'uncategorized' | string;
+  const [activeTab, setActiveTab] = useState<TabId>('all');
+
+  const VISIBLE_PAGE_SIZE = 30;
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_PAGE_SIZE);
 
   const refreshList = async () => {
     setLoading(true);
@@ -120,8 +126,40 @@ export function SavedArticles() {
     refreshList();
   }, []);
 
+  const tabCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: savedList.length, uncategorized: 0 };
+    for (const a of savedList) {
+      const niche = a.niche?.trim() || '';
+      if (!niche) counts.uncategorized = (counts.uncategorized || 0) + 1;
+      else counts[niche] = (counts[niche] || 0) + 1;
+    }
+    return counts;
+  }, [savedList]);
+
+  const orderedTabs = useMemo(() => {
+    const nicheTabs = Object.entries(tabCounts)
+      .filter(([id]) => id !== 'all' && id !== 'uncategorized' && tabCounts[id] > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => id);
+    return ['all', ...nicheTabs, 'uncategorized'] as TabId[];
+  }, [tabCounts]);
+
+  const filteredList = useMemo(() => {
+    if (activeTab === 'all') return savedList;
+    if (activeTab === 'uncategorized') return savedList.filter(a => !a.niche?.trim());
+    return savedList.filter(a => a.niche === activeTab);
+  }, [savedList, activeTab]);
+
+  useEffect(() => {
+    if (!orderedTabs.includes(activeTab)) setActiveTab('all');
+  }, [orderedTabs]);
+
+  useEffect(() => {
+    setVisibleCount(VISIBLE_PAGE_SIZE);
+  }, [activeTab]);
+
   // Group by date (YYYY-MM-DD), then sort newest first within each group
-  const byDate = savedList.reduce<Record<string, SavedArticleMeta[]>>((acc, a) => {
+  const byDate = filteredList.reduce<Record<string, SavedArticleMeta[]>>((acc, a) => {
     const d = new Date(a.createdAt).toLocaleDateString('en-CA'); // YYYY-MM-DD
     if (!acc[d]) acc[d] = [];
     acc[d].push(a);
@@ -133,6 +171,19 @@ export function SavedArticles() {
     label: formatDateLabel(d),
     articles: byDate[d].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
   }));
+
+  let remaining = visibleCount;
+  const visibleGroups = sortedGroups.map(group => {
+    if (remaining <= 0) return null;
+    const visibleArticles = group.articles.slice(0, remaining);
+    remaining -= visibleArticles.length;
+    return { ...group, articles: visibleArticles };
+  }).filter(Boolean) as typeof sortedGroups;
+
+  const totalFiltered = filteredList.length;
+  const hasMore = visibleCount < totalFiltered;
+  const remainingCount = totalFiltered - Math.min(visibleCount, totalFiltered);
+  const loadMoreCount = Math.min(VISIBLE_PAGE_SIZE, remainingCount);
 
   function formatDateLabel(iso: string): string {
     const d = new Date(iso);
@@ -156,6 +207,45 @@ export function SavedArticles() {
         </button>
       </div>
 
+      {savedList.length > 0 && (
+        <div className="mb-6 flex gap-1 bg-white/[0.03] rounded-md p-1 border border-white/[0.04] overflow-x-auto scrollbar-hide">
+          {orderedTabs.map(tabId => {
+            const isActive = tabId === activeTab;
+            const count = tabCounts[tabId] ?? 0;
+            const label = tabId === 'all' ? 'All'
+              : tabId === 'uncategorized' ? 'Uncategorized'
+              : (NICHE_LABELS[tabId] ?? tabId);
+            return (
+              <button
+                key={tabId}
+                onClick={() => setActiveTab(tabId)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
+                  isActive
+                    ? 'bg-red-600/20 text-red-400 border border-red-500/20'
+                    : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                }`}
+              >
+                {isActive && tabId !== 'all' && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/60 flex-shrink-0" />
+                )}
+                {label}
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                  isActive ? 'bg-red-500/20 text-red-300' : 'bg-white/[0.06] text-zinc-600'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {savedList.length > 0 && (
+        <p className="text-xs text-zinc-600 mb-4">
+          Showing {Math.min(visibleCount, filteredList.length)} of {filteredList.length} articles
+        </p>
+      )}
+
       {loading && savedList.length === 0 ? (
         <div className="text-center py-16 text-zinc-400 text-sm">
           Loading saved articles…
@@ -169,7 +259,7 @@ export function SavedArticles() {
         </div>
       ) : (
         <div className="space-y-6">
-          {sortedGroups.map(({ date, label, articles }) => (
+          {visibleGroups.map(({ date, label, articles }) => (
             <div key={date}>
               <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3 px-1">
                 {label}
@@ -288,6 +378,17 @@ export function SavedArticles() {
               </div>
             </div>
           ))}
+          {hasMore && (
+            <div className="mt-4 flex justify-center">
+              <button
+                onClick={() => setVisibleCount(c => c + VISIBLE_PAGE_SIZE)}
+                className="btn-glass text-sm px-5 py-2 rounded-lg border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.06] text-zinc-400 hover:text-zinc-200 transition"
+              >
+                Load {loadMoreCount} more
+                <span className="ml-1.5 text-zinc-600">({remainingCount} remaining)</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </main>

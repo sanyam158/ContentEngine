@@ -129,6 +129,14 @@ select.glass-input option:checked {
   transform: scale(0.98);
 }
 
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 .btn-danger {
   color: rgba(248, 113, 113, 0.8);
   transition: all 0.15s ease;

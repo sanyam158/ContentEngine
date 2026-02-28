@@ -21,6 +21,24 @@ export type SavedArticleMeta = Pick<
 
 const STORAGE_KEY = 'n2a-articles.json';
 
+// --- In-memory cache ---
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+interface ArticleCache { data: GeneratedArticle[]; expiresAt: number; }
+let articleCache: ArticleCache | null = null;
+
+function getCached(): GeneratedArticle[] | null {
+  if (!articleCache || Date.now() > articleCache.expiresAt) {
+    articleCache = null;
+    return null;
+  }
+  return articleCache.data;
+}
+function setCache(data: GeneratedArticle[]): void {
+  articleCache = { data, expiresAt: Date.now() + CACHE_TTL_MS };
+}
+function invalidateCache(): void { articleCache = null; }
+
 // --- GitHub Gist storage (Render / any host) ---
 async function readFromGist(): Promise<GeneratedArticle[]> {
   const gistId = process.env.GIST_ID;
@@ -179,6 +197,14 @@ async function readAll(): Promise<GeneratedArticle[]> {
   return readFromLocal();
 }
 
+async function readAllCached(): Promise<GeneratedArticle[]> {
+  const hit = getCached();
+  if (hit) return hit;
+  const fresh = await readAll();
+  setCache(fresh);
+  return fresh;
+}
+
 async function writeAll(items: GeneratedArticle[]): Promise<void> {
   const processed = await processImages(items);
   if (process.env.GIST_ID && process.env.GITHUB_TOKEN) return writeToGist(processed);
@@ -199,18 +225,19 @@ export async function saveGeneratedArticles(articles: GeneratedArticle[]): Promi
   });
   if (!valid.length) return 0;
 
-  const existing = await readAll();
+  const existing = await readAllCached();
   const byId = new Map(existing.map(a => [a.id, a]));
   for (const a of valid) {
     byId.set(a.id, a);
   }
   const merged = Array.from(byId.values()).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   await writeAll(merged);
+  invalidateCache();
   return valid.length;
 }
 
 export async function listSavedArticles(): Promise<SavedArticleMeta[]> {
-  const all = await readAll();
+  const all = await readAllCached();
   return all.map(a => ({
     id: a.id,
     createdAt: a.createdAt,
@@ -237,7 +264,7 @@ export function normalizeUrl(url: string): string {
 
 /** Returns normalized source URLs from all saved articles for deduplication. */
 export async function listSavedArticleSourceUrls(): Promise<Set<string>> {
-  const all = await readAll();
+  const all = await readAllCached();
   const urls = new Set<string>();
   for (const a of all) {
     for (const s of a.sources || []) {
@@ -248,24 +275,26 @@ export async function listSavedArticleSourceUrls(): Promise<Set<string>> {
 }
 
 export async function getSavedArticle(id: string): Promise<GeneratedArticle | null> {
-  const all = await readAll();
+  const all = await readAllCached();
   return all.find(a => a.id === id) || null;
 }
 
 export async function deleteSavedArticle(id: string): Promise<boolean> {
-  const existing = await readAll();
+  const existing = await readAllCached();
   const filtered = existing.filter(a => a.id !== id);
   if (filtered.length === existing.length) return false;
   await writeAll(filtered);
+  invalidateCache();
   return true;
 }
 
 export async function updateArticleNiche(id: string, niche: string): Promise<GeneratedArticle | null> {
-  const existing = await readAll();
+  const existing = await readAllCached();
   const idx = existing.findIndex(a => a.id === id);
   if (idx < 0) return null;
   existing[idx] = { ...existing[idx], niche };
   await writeAll(existing);
+  invalidateCache();
   return existing[idx];
 }
 
@@ -273,20 +302,22 @@ export async function updateArticleRepurposed(
   id: string,
   repurposed: GeneratedArticle['repurposed'],
 ): Promise<GeneratedArticle | null> {
-  const existing = await readAll();
+  const existing = await readAllCached();
   const idx = existing.findIndex(a => a.id === id);
   if (idx < 0) return null;
   existing[idx] = { ...existing[idx], repurposed: { ...existing[idx].repurposed, ...repurposed } };
   await writeAll(existing);
+  invalidateCache();
   return existing[idx];
 }
 
 export async function updateArticleImage(id: string, image: { base64: string; mimeType: string; prompt: string }): Promise<GeneratedArticle | null> {
-  const existing = await readAll();
+  const existing = await readAllCached();
   const idx = existing.findIndex(a => a.id === id);
   if (idx < 0) return null;
   // Clear imageUrl so the next Gist write re-uploads the new image to ImgBB
   existing[idx] = { ...existing[idx], image, imageUrl: undefined };
   await writeAll(existing);
+  invalidateCache();
   return existing[idx];
 }
