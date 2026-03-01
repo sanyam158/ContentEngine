@@ -230,6 +230,7 @@ const NICHE_OPTIONS = [
   { value: 'geopolitics',       label: 'Geopolitics' },
   { value: 'hinduism',          label: 'Hinduism & Indian Culture' },
   { value: 'stock-market',      label: 'Stock Market & Investing' },
+  { value: 'indian-politics',   label: 'Indian Politics' },
 ];
 
 export function Noise2Article() {

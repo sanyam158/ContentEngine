@@ -171,6 +171,7 @@ export const NICHE_PRESETS: Record<string, NichePreset> = {
         'https://venturebeat.com/category/ai/feed/',
         'https://www.wired.com/feed/tag/ai/latest/rss',
         'https://spectrum.ieee.org/rss/topic/artificial-intelligence',
+        'https://simonwillison.net/atom/everything/',
       ],
     },
   },
@@ -202,7 +203,7 @@ export const NICHE_PRESETS: Record<string, NichePreset> = {
       hnQueries: ['personal finance OR budgeting', 'investing OR retirement savings'],
       rssFeeds: [
         'https://affordanything.com/feed/',
-        'https://www.wisebread.com/feed',
+        'https://ofdollarsanddata.com/feed/',
         'https://www.nerdwallet.com/blog/feed/',
         'https://www.financialsamurai.com/feed/',
         'https://www.consumerfinance.gov/about-us/blog/feed/',
@@ -356,10 +357,43 @@ export const NICHE_PRESETS: Record<string, NichePreset> = {
         'https://www.hinduismtoday.com/rss',
         'https://vedanta.org/feed/',
         'https://www.thehindu.com/society/history-and-culture/feeder/default.rss',
-        'https://www.dharmadispatch.in/feed',
+
         'https://pragyata.com/feed/',
         'https://indiafacts.org/feed/',
         'https://swarajyamag.com/feed',
+      ],
+    },
+  },
+
+  'indian-politics': {
+    context: {
+      id: 'indian-politics',
+      displayName: 'Indian Politics',
+      brandVoice: 'sharp, factual Indian politics media brand',
+      platformDescriptor: 'Indian politics and policy content platform',
+      specificityExamples: 'BJP, Congress, Modi, Parliament, Election Commission, Lok Sabha, Rajya Sabha, state elections, Supreme Court, Union Budget, coalition politics',
+      hnFrontPagePattern: '\\bindia\\b|\\bbharat\\b|modi|\\bbjp\\b|congress|parliament|lok.?sabha|rajya.?sabha|election commission|supreme court india|political party',
+      bangerDefinition: 'fact-grounded analysis of Indian political events with named actors, policy implications, and historical context readers can understand and share',
+    },
+    configOverrides: {
+      subreddits: [
+        { name: 'india',               tier: 1, minScore: 100, minComments: 0 },
+        { name: 'IndiaSpeaks',         tier: 1, minScore: 30,  minComments: 0 },
+        { name: 'IndianPolitics',      tier: 2, minScore: 20,  minComments: 0 },
+        { name: 'unitedstatesofindia', tier: 2, minScore: 20,  minComments: 0 },
+        { name: 'indianews',           tier: 2, minScore: 30,  minComments: 0 },
+        { name: 'worldnews',           tier: 3, minScore: 200, minComments: 20 },
+      ],
+      hnQueries: [
+        'India OR BJP OR Modi OR election',
+        'Indian politics OR Parliament OR Supreme Court India',
+      ],
+      rssFeeds: [
+        'https://www.thehindu.com/news/national/feeder/default.rss',
+        'https://indianexpress.com/feed/',
+        'https://feeds.feedburner.com/ndtvnews-india-news',
+        'https://www.livemint.com/rss/politics',
+        'https://www.opindia.com/feed/',
       ],
     },
   },
@@ -396,7 +430,7 @@ export const NICHE_PRESETS: Record<string, NichePreset> = {
         'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258',
         'https://seekingalpha.com/feed.xml',
         'https://www.fool.com/feeds/index.aspx',
-        'https://www.ft.com/rss/home',
+
         'https://www.marketwatch.com/rss/marketpulse',
         'https://www.nasdaq.com/feed/rssoutbound?category=Markets',
         'https://www.sec.gov/news/pressreleases.rss',
