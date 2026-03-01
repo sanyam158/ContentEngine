@@ -11,6 +11,7 @@ Convert your video scripts into viral X/Twitter threads using AI. This full-stac
 - **🐦 Direct X/Twitter Posting**: Seamlessly post threads using Composio MCP
 - **🎨 Multiple Variations**: Generate 3+ different takes on the same content for A/B testing
 - **⚡ Production Ready**: Built with TypeScript, tested, and optimized for speed
+- **🎬 CaptionedVideoGenerator**: Render captioned social videos via GitHub Actions ([VideoCreater](https://github.com/sanyam158/VideoCreater))
 
 ## 📋 Prerequisites
 
@@ -27,6 +28,26 @@ You'll need API keys for:
 
 4. **X/Twitter App** - Set up at [developer.twitter.com](https://developer.twitter.com)
    - For OAuth callback setup with Composio
+
+## 🎬 CaptionedVideoGenerator
+
+Renders captioned social media videos by dispatching GitHub Actions workflows in the [VideoCreater](https://github.com/sanyam158/VideoCreater) repo.
+
+**Supported Platforms:** Instagram Reel, TikTok, YouTube Shorts, Instagram Feed (4:5), X/Twitter Square, LinkedIn Feed
+
+**Workflow:**
+1. Fill in content (title, hook, body) and style settings in the **CaptionedVideoGenerator** tab
+2. Click **Render Videos** — triggers the `render.yml` workflow in VideoCreater via GitHub API
+3. Page polls GitHub Actions every 8 seconds for completion (typically 1–5 minutes)
+4. Download rendered video ZIPs directly from GitHub Artifacts
+
+**Additional env vars required (backend `backend/.env`):**
+```env
+VCG_GITHUB_TOKEN=your_github_pat   # needs repo + actions:read scopes
+VCG_GITHUB_REPO=sanyam158/VideoCreater
+```
+
+---
 
 ## 🚀 Quick Start
 

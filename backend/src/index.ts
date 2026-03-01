@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js';
 import apiRoutes from './routes/api.js';
 import n2aRoutes from './routes/noise2article.js';
 import i2cRoutes from './routes/idea2content.js';
+import vcgRoutes from './routes/videocreater.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import { validateEnvVariables } from './utils/helpers.js';
 
@@ -57,6 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api', requireAuth, apiRoutes);
 app.use('/api/n2a', requireAuth, n2aRoutes);
 app.use('/api/i2c', requireAuth, i2cRoutes);
+app.use('/api/vcg', requireAuth, vcgRoutes);
 
 // Health check root endpoint
 app.get('/', (_req: Request, res: Response) => {

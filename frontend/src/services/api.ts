@@ -14,6 +14,19 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+export interface VcgPlatform { key: string; label: string; bodyCharLimit: number; }
+export interface VcgTemplate { key: string; label: string; }
+export interface VcgConfig {
+  platforms:       VcgPlatform[];
+  templates:       VcgTemplate[];
+  themes:          [string, string][];
+  pace:            [string, string][];
+  animationStyles: [string, string][];
+  fonts:           [string, string][];
+  animationSpeeds: [string, string][];
+  contentGoals:    [string, string][];
+}
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -289,6 +302,46 @@ export const apiService = {
   }): Promise<{ success: boolean; data?: any; error?: string }> => {
     const response = await api.post('/i2c/generate', options, { timeout: 300000 });
     return response.data;
+  },
+
+  // CaptionedVideoGenerator — GitHub Actions render pipeline
+  triggerVcgRender: async (payload: object): Promise<void> => {
+    await api.post('/vcg/trigger', { inputs: { payload: JSON.stringify(payload) } });
+  },
+
+  getVcgRuns: async (after: number): Promise<{ run: { id: number; created_at: string; status: string; html_url: string } | null }> => {
+    const response = await api.get(`/vcg/runs?after=${after}`);
+    return response.data;
+  },
+
+  getVcgRunStatus: async (id: number): Promise<{ status: string; conclusion: string | null; id: number; html_url: string }> => {
+    const response = await api.get(`/vcg/run-status?id=${id}`);
+    return response.data;
+  },
+
+  getVcgArtifacts: async (runId: number): Promise<{ artifacts: Array<{ id: number; name: string }> }> => {
+    const response = await api.get(`/vcg/artifacts?runId=${runId}`);
+    return response.data;
+  },
+
+  getVcgConfig: async (): Promise<VcgConfig> => {
+    const response = await api.get('/vcg/config');
+    return response.data;
+  },
+
+  downloadVcgArtifact: async (artifactId: number, name: string): Promise<void> => {
+    const response = await api.get(
+      `/vcg/download?artifactId=${artifactId}&name=${encodeURIComponent(name)}`,
+      { responseType: 'blob' }
+    );
+    const url = URL.createObjectURL(response.data as Blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   },
 
   // Test master image prompts (no article required)

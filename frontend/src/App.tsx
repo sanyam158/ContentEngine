@@ -3,6 +3,7 @@ import { Script2Thread } from './pages/Script2Thread';
 import { Noise2Article } from './pages/Noise2Article';
 import { Idea2Content } from './pages/Idea2Content';
 import { SavedArticles } from './pages/SavedArticles';
+import { CaptionedVideoGenerator } from './pages/CaptionedVideoGenerator';
 import { TestImagePrompts } from './pages/TestImagePrompts';
 import { Login } from './pages/Login';
 import { useAuth } from './auth/AuthContext';
@@ -45,56 +46,31 @@ function AppShell() {
               </div>
             </div>
 
-            <nav className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-              <NavLink
-                to="/"
-                end
-                className={({ isActive }) =>
-                  `flex-1 text-center py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-red-600/20 text-red-400 border border-red-500/20'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]'
-                  }`
-                }
-              >
-                Script2Thread
-              </NavLink>
-              <NavLink
-                to="/noise2article"
-                className={({ isActive }) =>
-                  `flex-1 text-center py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-red-600/20 text-red-400 border border-red-500/20'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]'
-                  }`
-                }
-              >
-                Noise2Article
-              </NavLink>
-              <NavLink
-                to="/idea2content"
-                className={({ isActive }) =>
-                  `flex-1 text-center py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-red-600/20 text-red-400 border border-red-500/20'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]'
-                  }`
-                }
-              >
-                Idea2Content
-              </NavLink>
-              <NavLink
-                to="/saved"
-                className={({ isActive }) =>
-                  `flex-1 text-center py-2 px-3 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-red-600/20 text-red-400 border border-red-500/20'
-                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]'
-                  }`
-                }
-              >
-                Saved Articles
-              </NavLink>
+            <nav className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/[0.06] overflow-x-auto scrollbar-hide">
+              {(
+                [
+                  { to: '/', end: true, label: 'Script2Thread' },
+                  { to: '/noise2article', label: 'Noise2Article' },
+                  { to: '/idea2content', label: 'Idea2Content' },
+                  { to: '/video', label: 'VideoGen' },
+                  { to: '/saved', label: 'Saved' },
+                ] as Array<{ to: string; end?: boolean; label: string }>
+              ).map(({ to, end, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    `shrink-0 whitespace-nowrap text-center py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-red-600/20 text-red-400 border border-red-500/20'
+                        : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]'
+                    }`
+                  }
+                >
+                  {label}
+                </NavLink>
+              ))}
             </nav>
           </header>
 
@@ -102,6 +78,7 @@ function AppShell() {
             <Route path="/" element={<Script2Thread />} />
             <Route path="/noise2article" element={<Noise2Article />} />
             <Route path="/idea2content" element={<Idea2Content />} />
+            <Route path="/video" element={<CaptionedVideoGenerator />} />
             <Route path="/saved" element={<SavedArticles />} />
             <Route path="/test-image" element={<TestImagePrompts />} />
           </Routes>
