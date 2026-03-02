@@ -1,0 +1,20 @@
+{
+  "platforms": [
+    { "key": "instagramReel",  "label": "Instagram Reel",        "bodyCharLimit": 360 },
+    { "key": "tiktok",         "label": "TikTok",                "bodyCharLimit": 360 },
+    { "key": "youtubeShorts",  "label": "YouTube Shorts",        "bodyCharLimit": 360 },
+    { "key": "instagramFeed",  "label": "Instagram Feed (4:5)",  "bodyCharLimit": 280 },
+    { "key": "xSquare",        "label": "X/Twitter Square",      "bodyCharLimit": 220 },
+    { "key": "linkedinFeed",   "label": "LinkedIn Feed",         "bodyCharLimit": 280 }
+  ],
+  "templates": [
+    { "key": "reel",        "label": "Animated Reel" },
+    { "key": "minimalText", "label": "Minimal Text" }
+  ],
+  "themes":          [["minimalBlack", "Minimal Black"], ["darkGradient", "Dark Gradient"]],
+  "pace":            [["snappy", "Snappy"], ["balanced", "Balanced"], ["calm", "Calm"]],
+  "animationStyles": [["fadeUp", "Fade Up"], ["typewriter", "Typewriter"], ["slideLeft", "Slide Left"]],
+  "fonts":           [["poppins", "Poppins"], ["inter", "Inter"], ["roboto", "Roboto"], ["montserrat", "Montserrat"], ["oswald", "Oswald"]],
+  "animationSpeeds": [["slow", "Slow"], ["normal", "Normal"], ["fast", "Fast"]],
+  "contentGoals":    [["reach", "Reach"], ["engagement", "Engagement"], ["conversion", "Conversion"]]
+}
