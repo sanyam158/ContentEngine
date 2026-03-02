@@ -8,7 +8,7 @@ name: Noise2Article Cron
 
 on:
   schedule:
-    - cron: '30 */6 * * *' # Every 6 hours at HH:30 UTC
+    - cron: '30 */12 * * *' # Every 12 hours at HH:30 UTC
   workflow_dispatch:
 
 concurrency:

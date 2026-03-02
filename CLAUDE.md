@@ -94,5 +94,5 @@ Optional:
 ## Deployment
 - **Frontend**: Vercel, root directory `frontend/`
 - **Backend**: Render, root directory `backend/`
-- **Cron**: GitHub Actions (`.github/workflows/n2a-cron.yml`) runs every 6 hours, warms Render via `/api/health`, authenticates, then runs Noise2Article sequentially for all niches with `platforms=["instagram","linkedin"]` and a 5-minute gap between niches
+- **Cron**: GitHub Actions (`.github/workflows/n2a-cron.yml`) runs every 12 hours, warms Render via `/api/health`, authenticates, then runs Noise2Article sequentially for all niches with `platforms=["instagram","linkedin"]` and a 5-minute gap between niches
 - **Cron secrets**: `N2A_BACKEND_URL`, `N2A_CRON_USERNAME`, `N2A_CRON_PASSWORD`
