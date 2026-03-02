@@ -1,36 +1,230 @@
-# Noise2Article — Auto-run pipeline once per day
-# Add secret N2A_BACKEND_URL (e.g. https://your-backend.onrender.com) in repo Settings → Secrets
+# Noise2Article cron runner.
+# Required repo secrets:
+# - N2A_BACKEND_URL (for example: https://your-backend.onrender.com)
+# - N2A_CRON_USERNAME
+# - N2A_CRON_PASSWORD
 
 name: Noise2Article Cron
 
 on:
   schedule:
-    - cron: '30 11 * * *'  # Every day at 11:30 UTC (17:00 IST)
-  workflow_dispatch:  # Allow manual trigger
+    - cron: '30 */12 * * *' # Every 12 hours at HH:30 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: n2a-cron
+  cancel-in-progress: false
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
+    timeout-minutes: 360
     steps:
-      - name: Trigger Noise2Article pipeline
+      - name: Trigger Noise2Article for all niches
+        env:
+          BACKEND_URL: ${{ secrets.N2A_BACKEND_URL }}
+          N2A_USERNAME: ${{ secrets.N2A_CRON_USERNAME }}
+          N2A_PASSWORD: ${{ secrets.N2A_CRON_PASSWORD }}
         run: |
-          BACKEND_URL="${{ secrets.N2A_BACKEND_URL }}"
-          if [ -z "$BACKEND_URL" ]; then
-            echo "::warning::N2A_BACKEND_URL secret not set. Add it in repo Settings → Secrets."
-            exit 0
-          fi
-          echo "Calling $BACKEND_URL/api/n2a/discover"
-          RESP=$(curl -s -w "\n%{http_code}" -X POST "$BACKEND_URL/api/n2a/discover" \
-            -H "Content-Type: application/json" \
-            -d '{}' \
-            --max-time 600)
-          HTTP_CODE=$(echo "$RESP" | tail -n1)
-          BODY=$(echo "$RESP" | sed '$d')
-          echo "HTTP $HTTP_CODE"
-          echo "$BODY" | head -c 500
-          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "Pipeline completed successfully"
-          else
-            echo "Pipeline returned HTTP $HTTP_CODE"
+          set -u -o pipefail
+
+          if [ -z "${BACKEND_URL:-}" ] || [ -z "${N2A_USERNAME:-}" ] || [ -z "${N2A_PASSWORD:-}" ]; then
+            echo "::error::Missing one or more required secrets: N2A_BACKEND_URL, N2A_CRON_USERNAME, N2A_CRON_PASSWORD"
             exit 1
           fi
+
+          BACKEND_URL="${BACKEND_URL%/}"
+          AUTH_TOKEN=""
+          LAST_HTTP_CODE="000"
+          LAST_BODY=""
+
+          declare -a NICHES=(
+            "ai-tech"
+            "personal-finance"
+            "health-wellness"
+            "travel"
+            "geopolitics"
+            "hinduism"
+            "indian-politics"
+            "stock-market"
+          )
+          declare -a SUMMARY_ROWS=()
+
+          warm_backend() {
+            local max_wait_seconds=480
+            local interval_seconds=15
+            local waited=0
+
+            echo "Warming backend: ${BACKEND_URL}/api/health (max ${max_wait_seconds}s)"
+            while [ "$waited" -le "$max_wait_seconds" ]; do
+              local http_code
+              http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "${BACKEND_URL}/api/health" || true)
+              if [ "$http_code" = "200" ]; then
+                echo "Backend is awake after ${waited}s."
+                return 0
+              fi
+              echo "Health probe HTTP ${http_code:-000}; retrying in ${interval_seconds}s..."
+              sleep "$interval_seconds"
+              waited=$((waited + interval_seconds))
+            done
+
+            echo "::error::Backend did not wake within ${max_wait_seconds}s. Render free-tier cold start may be delayed."
+            return 1
+          }
+
+          login() {
+            local response http_code body token snippet
+            echo "Requesting auth token..."
+
+            response=$(curl -sS -w "\n%{http_code}" -X POST "${BACKEND_URL}/api/auth/login" \
+              -H "Content-Type: application/json" \
+              -d "{\"username\":\"${N2A_USERNAME}\",\"password\":\"${N2A_PASSWORD}\"}" \
+              --max-time 60 || true)
+
+            http_code=$(printf '%s\n' "$response" | tail -n1)
+            body=$(printf '%s\n' "$response" | sed '$d')
+
+            if ! [[ "$http_code" =~ ^[0-9]{3}$ ]]; then
+              http_code="000"
+            fi
+
+            if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+              snippet=$(printf '%s' "$body" | tr '\n' ' ' | head -c 500)
+              echo "::error::Login failed with HTTP ${http_code}. ${snippet}"
+              return 1
+            fi
+
+            token=$(printf '%s' "$body" | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)
+            if [ -z "$token" ]; then
+              snippet=$(printf '%s' "$body" | tr '\n' ' ' | head -c 500)
+              echo "::error::Login succeeded but no token in response. ${snippet}"
+              return 1
+            fi
+
+            AUTH_TOKEN="$token"
+            echo "Auth token acquired."
+            return 0
+          }
+
+          run_discover_call() {
+            local niche="$1"
+            local payload response http_code body
+
+            payload="{\"niche\":\"${niche}\",\"platforms\":[\"instagram\",\"linkedin\"]}"
+            response=$(curl -sS -w "\n%{http_code}" -X POST "${BACKEND_URL}/api/n2a/discover" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${AUTH_TOKEN}" \
+              -d "${payload}" \
+              --max-time 1200 || true)
+
+            http_code=$(printf '%s\n' "$response" | tail -n1)
+            body=$(printf '%s\n' "$response" | sed '$d')
+
+            if ! [[ "$http_code" =~ ^[0-9]{3}$ ]]; then
+              http_code="000"
+            fi
+
+            LAST_HTTP_CODE="$http_code"
+            LAST_BODY="$body"
+          }
+
+          run_niche() {
+            local niche="$1"
+            local start_ts end_ts duration_seconds attempt retry_count status snippet
+
+            start_ts=$(date +%s)
+            attempt=1
+            retry_count=0
+            status="failed"
+
+            while [ "$attempt" -le 2 ]; do
+              echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] Running niche '${niche}' (attempt ${attempt}/2)"
+              run_discover_call "$niche"
+              snippet=$(printf '%s' "$LAST_BODY" | tr '\n' ' ' | head -c 500)
+              echo "HTTP ${LAST_HTTP_CODE}"
+              if [ -n "$snippet" ]; then
+                echo "Body: ${snippet}"
+              fi
+
+              if [ "$LAST_HTTP_CODE" -ge 200 ] && [ "$LAST_HTTP_CODE" -lt 300 ]; then
+                status="success"
+                break
+              fi
+
+              if [ "$LAST_HTTP_CODE" = "401" ] && [ "$attempt" -eq 1 ]; then
+                echo "Received 401. Re-authenticating and retrying once."
+                if ! login; then
+                  echo "::error::Token refresh failed for niche '${niche}'."
+                  break
+                fi
+                retry_count=$((retry_count + 1))
+                attempt=$((attempt + 1))
+                continue
+              fi
+
+              if [ "$attempt" -eq 1 ] && { [ "$LAST_HTTP_CODE" = "429" ] || { [ "$LAST_HTTP_CODE" -ge 500 ] && [ "$LAST_HTTP_CODE" -lt 600 ]; }; }; then
+                echo "Received retryable HTTP ${LAST_HTTP_CODE}. Waiting 60s before retry."
+                sleep 60
+                retry_count=$((retry_count + 1))
+                attempt=$((attempt + 1))
+                continue
+              fi
+
+              break
+            done
+
+            end_ts=$(date +%s)
+            duration_seconds=$((end_ts - start_ts))
+            SUMMARY_ROWS+=("${niche}|${status}|${duration_seconds}|${retry_count}|${LAST_HTTP_CODE}")
+
+            if [ "$status" = "success" ]; then
+              echo "Niche '${niche}' finished successfully in ${duration_seconds}s."
+              return 0
+            fi
+
+            echo "::error::Niche '${niche}' failed with HTTP ${LAST_HTTP_CODE} after ${duration_seconds}s."
+            return 1
+          }
+
+          if ! warm_backend; then
+            exit 1
+          fi
+
+          if ! login; then
+            exit 1
+          fi
+
+          failed_count=0
+          total_niches=${#NICHES[@]}
+
+          for i in "${!NICHES[@]}"; do
+            niche="${NICHES[$i]}"
+
+            if ! warm_backend; then
+              exit 1
+            fi
+
+            if ! run_niche "$niche"; then
+              failed_count=$((failed_count + 1))
+            fi
+
+            if [ "$i" -lt $((total_niches - 1)) ]; then
+              echo "Sleeping 300s before next niche to reduce API burst pressure..."
+              sleep 300
+            fi
+          done
+
+          echo ""
+          echo "Run Summary"
+          printf "%-20s %-10s %-12s %-8s %-6s\n" "Niche" "Status" "Duration(s)" "Retries" "HTTP"
+          for row in "${SUMMARY_ROWS[@]}"; do
+            IFS='|' read -r s_niche s_status s_duration s_retries s_http <<< "$row"
+            printf "%-20s %-10s %-12s %-8s %-6s\n" "$s_niche" "$s_status" "$s_duration" "$s_retries" "$s_http"
+          done
+
+          if [ "$failed_count" -gt 0 ]; then
+            echo "::error::${failed_count} niche run(s) failed."
+            exit 1
+          fi
+
+          echo "All niche runs completed successfully."

@@ -43,7 +43,7 @@ Full-stack monorepo: `backend/` (Express + TypeScript) + `frontend/` (React 18 +
 **Idea2Content** — Generate full articles from a topic idea.
 
 ### Niche System
-Defined in `backend/src/services/noise2article/types.ts` as `NICHE_PRESETS`. Active niches: `ai-tech`, `personal-finance`, `health-wellness`, `travel`, `geopolitics`, `hinduism`, `stock-market`. To add a niche: add to `NICHE_PRESETS` and add a dropdown option in the frontend. No other code changes needed.
+Defined in `backend/src/services/noise2article/types.ts` as `NICHE_PRESETS`. Active niches: `ai-tech`, `personal-finance`, `health-wellness`, `travel`, `geopolitics`, `hinduism`, `indian-politics`, `stock-market`. To add a niche: add to `NICHE_PRESETS` and add a dropdown option in the frontend. No other code changes needed.
 
 ### Storage
 No SQL database — JSON-based storage only. Priority order:
@@ -94,4 +94,5 @@ Optional:
 ## Deployment
 - **Frontend**: Vercel, root directory `frontend/`
 - **Backend**: Render, root directory `backend/`
-- **Cron**: GitHub Actions (`.github/workflows/n2a-cron.yml`) triggers Noise2Article every 6 hours
+- **Cron**: GitHub Actions (`.github/workflows/n2a-cron.yml`) runs every 12 hours, warms Render via `/api/health`, authenticates, then runs Noise2Article sequentially for all niches with `platforms=["instagram","linkedin"]` and a 5-minute gap between niches
+- **Cron secrets**: `N2A_BACKEND_URL`, `N2A_CRON_USERNAME`, `N2A_CRON_PASSWORD`
