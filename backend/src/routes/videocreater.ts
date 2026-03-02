@@ -98,7 +98,7 @@ router.get('/artifacts', async (req: Request, res: Response) => {
   }
 });
 
-const LOCAL_RENDER_CONFIG_PATH = path.join(process.cwd(), 'data', 'render-config.json');
+const LOCAL_RENDER_CONFIG_PATH = path.join(process.cwd(), 'config', 'render-config.json');
 
 router.get('/config', async (req: Request, res: Response) => {
   try {
@@ -175,3 +175,4 @@ router.get('/download', async (req: Request, res: Response) => {
 });
 
 export default router;
+
