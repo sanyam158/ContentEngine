@@ -41,10 +41,7 @@ jobs:
           declare -a NICHES=(
             "ai-tech"
             "personal-finance"
-            "health-wellness"
-            "travel"
             "geopolitics"
-            "hinduism"
             "indian-politics"
             "stock-market"
           )
