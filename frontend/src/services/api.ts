@@ -16,6 +16,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export interface VcgPlatform { key: string; label: string; bodyCharLimit: number; }
 export interface VcgTemplate { key: string; label: string; }
+export interface VcgBiasRange { min: number; max: number; default: number; step: number; }
 export interface VcgConfig {
   platforms:       VcgPlatform[];
   templates:       VcgTemplate[];
@@ -24,7 +25,9 @@ export interface VcgConfig {
   animationStyles: [string, string][];
   fonts:           [string, string][];
   animationSpeeds: [string, string][];
-  contentGoals:    [string, string][];
+  defaultBodyTextColor: string;
+  bodyFontSizeBiasRange: VcgBiasRange;
+  textFontSizeBiasRange: VcgBiasRange;
 }
 
 export interface AuthUser {
