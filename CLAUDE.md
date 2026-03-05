@@ -76,6 +76,24 @@ const getService = () => { if (!service) service = new MyService(...); return se
 ### Frontend API Client
 `frontend/src/services/api.ts` — Axios instance with base URL `VITE_API_URL || http://localhost:5000/api`. Interceptors handle auth header injection and 401 logout.
 
+### CaptionedVideoGenerator (VCG)
+VCG uses backend routes in `backend/src/routes/videocreater.ts` to dispatch `render.yml` in the `VideoCreater` repo.
+
+`GET /api/vcg/config` serves `backend/config/render-config.json` with runtime validation. Current config contract:
+- `platforms`: `{ key, label, bodyCharLimit }[]`
+- `templates`: `{ key, label }[]`
+- `themes`, `pace`, `animationStyles`, `fonts`, `animationSpeeds`: `[value, label][]`
+- `defaultBodyTextColor: string`
+- `bodyFontSizeBiasRange: { min, max, default, step }`
+- `textFontSizeBiasRange: { min, max, default, step }`
+
+`contentGoals`/`contentGoal` is deprecated and removed from UI + payload.
+
+`POST /api/vcg/trigger` expects `inputs.payload` as JSON string, validates `template` + non-empty `platforms`, removes deprecated `contentGoal`, and forwards:
+- Reel payload includes `bodyTextColor`, `bodyFontSizeBias`
+- MinimalText payload includes `textFontSizeBias`
+- Existing GitHub dispatch flow remains unchanged
+
 ## Environment Variables
 
 Copy `backend/.env.example` to `backend/.env`. Required:
@@ -90,6 +108,7 @@ Optional:
 - `IMGBB_API_KEY` — image hosting (base64 stripped after upload)
 - `REDDIT_USER_ID` — Composio entity ID
 - `AUTH_TOKEN_TTL_HOURS` — token lifetime (default: 12)
+- `VCG_GITHUB_TOKEN` + `VCG_GITHUB_REPO` — required for `/api/vcg/*` GitHub Actions integration
 
 ## Deployment
 - **Frontend**: Vercel, root directory `frontend/`

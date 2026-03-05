@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
-import apiService, { VcgConfig, VcgPlatform } from '../services/api';
+import apiService, { VcgBiasRange, VcgConfig, VcgPlatform } from '../services/api';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -26,10 +26,11 @@ interface FormState {
   theme: string;
   pace: string;
   animationStyle: string;
-  contentGoal: string;
   fontFamily: string;
   animationSpeed: string;
   accentColor: string;
+  bodyTextColor: string;
+  bodyFontSizeBias: number;
   showProgressBar: boolean;
   showPlatformBadge: boolean;
   showSafeZoneGuides: boolean;
@@ -41,6 +42,7 @@ interface FormState {
   durationSeconds: number;
   headingColor: string;
   textColor: string;
+  textFontSizeBias: number;
 }
 
 const DEFAULT_FORM: FormState = {
@@ -55,10 +57,11 @@ const DEFAULT_FORM: FormState = {
   theme: 'minimalBlack',
   pace: 'balanced',
   animationStyle: 'fadeUp',
-  contentGoal: 'reach',
   fontFamily: 'poppins',
   animationSpeed: 'normal',
   accentColor: '#ff2d2d',
+  bodyTextColor: '#FFE500',
+  bodyFontSizeBias: 0,
   showProgressBar: true,
   showPlatformBadge: true,
   showSafeZoneGuides: false,
@@ -69,6 +72,7 @@ const DEFAULT_FORM: FormState = {
   durationSeconds: 4,
   headingColor: '#ff5a5a',
   textColor: '#ffffff',
+  textFontSizeBias: 0,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -76,6 +80,26 @@ const DEFAULT_FORM: FormState = {
 function getBodyLimit(keys: string[], platforms: VcgPlatform[]): number {
   if (keys.length === 0) return 360;
   return Math.min(...keys.map(k => platforms.find(p => p.key === k)?.bodyCharLimit ?? 360));
+}
+
+const DEFAULT_BIAS_RANGE: VcgBiasRange = { min: -6, max: 8, default: 0, step: 1 };
+
+function coerceBiasRange(value: unknown): VcgBiasRange {
+  if (!value || typeof value !== 'object') return DEFAULT_BIAS_RANGE;
+  const candidate = value as Partial<VcgBiasRange>;
+  if (
+    typeof candidate.min !== 'number'
+    || typeof candidate.max !== 'number'
+    || typeof candidate.default !== 'number'
+    || typeof candidate.step !== 'number'
+  ) {
+    return DEFAULT_BIAS_RANGE;
+  }
+  return candidate as VcgBiasRange;
+}
+
+function clampToRange(value: number, range: VcgBiasRange): number {
+  return Math.min(range.max, Math.max(range.min, value));
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -88,12 +112,30 @@ export function CaptionedVideoGenerator() {
   useEffect(() => {
     apiService.getVcgConfig()
       .then(cfg => {
-        setVcgConfig(cfg);
+        const bodyRange = coerceBiasRange((cfg as Partial<VcgConfig>).bodyFontSizeBiasRange);
+        const textRange = coerceBiasRange((cfg as Partial<VcgConfig>).textFontSizeBiasRange);
+        const defaultBodyTextColor = typeof (cfg as Partial<VcgConfig>).defaultBodyTextColor === 'string'
+          ? (cfg as Partial<VcgConfig>).defaultBodyTextColor as string
+          : '#FFE500';
+
+        const normalizedCfg: VcgConfig = {
+          ...cfg,
+          defaultBodyTextColor,
+          bodyFontSizeBiasRange: bodyRange,
+          textFontSizeBiasRange: textRange,
+        };
+
+        setVcgConfig(normalizedCfg);
         // Pre-select the first platform once config is available
-        setForm(prev => prev.platforms.length === 0 && cfg.platforms.length > 0
-          ? { ...prev, platforms: [cfg.platforms[0].key] }
-          : prev
-        );
+        setForm(prev => ({
+          ...prev,
+          platforms: prev.platforms.length === 0 && normalizedCfg.platforms.length > 0
+            ? [normalizedCfg.platforms[0].key]
+            : prev.platforms,
+          bodyTextColor: defaultBodyTextColor,
+          bodyFontSizeBias: clampToRange(bodyRange.default, bodyRange),
+          textFontSizeBias: clampToRange(textRange.default, textRange),
+        }));
       })
       .catch(() => setConfigError('Failed to load render config. Try refreshing.'));
   }, []);
@@ -176,10 +218,11 @@ export function CaptionedVideoGenerator() {
         theme: form.theme,
         pace: form.pace,
         animationStyle: form.animationStyle,
-        contentGoal: form.contentGoal,
         fontFamily: form.fontFamily,
         animationSpeed: form.animationSpeed,
         accentColor: form.accentColor,
+        bodyTextColor: form.bodyTextColor,
+        bodyFontSizeBias: form.bodyFontSizeBias,
         showProgressBar: form.showProgressBar,
         showPlatformBadge: form.showPlatformBadge,
         showSafeZoneGuides: form.showSafeZoneGuides,
@@ -198,6 +241,7 @@ export function CaptionedVideoGenerator() {
         durationSeconds: form.durationSeconds,
         headingColor: form.headingColor,
         textColor: form.textColor,
+        textFontSizeBias: form.textFontSizeBias,
       };
     }
 
@@ -510,20 +554,49 @@ export function CaptionedVideoGenerator() {
             {renderSelect('theme', 'Theme', cfg.themes)}
             {renderSelect('pace', 'Pace', cfg.pace)}
             {renderSelect('animationStyle', 'Animation', cfg.animationStyles)}
-            {renderSelect('contentGoal', 'Goal', cfg.contentGoals)}
             {renderSelect('fontFamily', 'Font', cfg.fonts)}
             {renderSelect('animationSpeed', 'Speed', cfg.animationSpeeds)}
           </div>
-          <div>
-            <label className="block text-xs text-zinc-500 mb-1">Accent Color</label>
-            <div className="flex items-center gap-2">
-              <input type="color" value={form.accentColor}
-                onChange={e => setField('accentColor', e.target.value)}
-                className="h-9 w-14 rounded-lg cursor-pointer bg-transparent border border-white/[0.06]" />
-              <input type="text" value={form.accentColor} maxLength={7} placeholder="#ff2d2d"
-                onChange={e => { const v = e.target.value; if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setField('accentColor', v); }}
-                className="glass-input text-sm px-3 py-2 rounded-lg w-28 font-mono" />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Accent Color</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={form.accentColor}
+                  onChange={e => setField('accentColor', e.target.value)}
+                  className="h-9 w-14 rounded-lg cursor-pointer bg-transparent border border-white/[0.06]" />
+                <input type="text" value={form.accentColor} maxLength={7} placeholder="#ff2d2d"
+                  onChange={e => { const v = e.target.value; if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setField('accentColor', v); }}
+                  className="glass-input text-sm px-3 py-2 rounded-lg w-28 font-mono" />
+              </div>
             </div>
+
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Body Text Color</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={form.bodyTextColor}
+                  onChange={e => setField('bodyTextColor', e.target.value)}
+                  className="h-9 w-14 rounded-lg cursor-pointer bg-transparent border border-white/[0.06]" />
+                <input type="text" value={form.bodyTextColor} maxLength={7} placeholder={cfg.defaultBodyTextColor}
+                  onChange={e => { const v = e.target.value; if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setField('bodyTextColor', v); }}
+                  className="glass-input text-sm px-3 py-2 rounded-lg w-28 font-mono" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs text-zinc-500">Body Font Size Bias</label>
+              <span className="text-xs text-zinc-500 font-mono">{form.bodyFontSizeBias}</span>
+            </div>
+            <input
+              type="range"
+              min={cfg.bodyFontSizeBiasRange.min}
+              max={cfg.bodyFontSizeBiasRange.max}
+              step={cfg.bodyFontSizeBiasRange.step}
+              value={form.bodyFontSizeBias}
+              onChange={e => setField('bodyFontSizeBias', clampToRange(Number(e.target.value), cfg.bodyFontSizeBiasRange))}
+              className="w-full accent-red-500"
+            />
           </div>
         </section>
       )}
@@ -540,6 +613,21 @@ export function CaptionedVideoGenerator() {
                 onChange={e => setField('durationSeconds', parseInt(e.target.value, 10) || 4)}
                 className="glass-input w-full text-sm px-3 py-2 rounded-lg" />
             </div>
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs text-zinc-500">Text Font Size Bias</label>
+              <span className="text-xs text-zinc-500 font-mono">{form.textFontSizeBias}</span>
+            </div>
+            <input
+              type="range"
+              min={cfg.textFontSizeBiasRange.min}
+              max={cfg.textFontSizeBiasRange.max}
+              step={cfg.textFontSizeBiasRange.step}
+              value={form.textFontSizeBias}
+              onChange={e => setField('textFontSizeBias', clampToRange(Number(e.target.value), cfg.textFontSizeBiasRange))}
+              className="w-full accent-red-500"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             {(['headingColor', 'textColor'] as const).map(key => (

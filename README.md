@@ -41,6 +41,10 @@ Renders captioned social media videos by dispatching GitHub Actions workflows in
 3. Page polls GitHub Actions every 8 seconds for completion (typically 1–5 minutes)
 4. Download rendered video ZIPs directly from GitHub Artifacts
 
+**VCG config notes (`backend/config/render-config.json`):**
+- `contentGoals` is deprecated and no longer used.
+- New supported fields: `defaultBodyTextColor`, `bodyFontSizeBiasRange`, `textFontSizeBiasRange`.
+
 **Additional env vars required (backend `backend/.env`):**
 ```env
 VCG_GITHUB_TOKEN=your_github_pat   # needs repo + actions:read scopes
