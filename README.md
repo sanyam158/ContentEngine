@@ -180,11 +180,10 @@ The Noise2Article pipeline scrapes Reddit, HN, and RSS feeds, filters signal fro
 | `ai-tech` | AI & Tech | LocalLLaMA, ClaudeAI, OpenAI, MIT Review, TechCrunch AI |
 | `personal-finance` | Personal Finance | r/personalfinance, r/FIRE, NerdWallet, Mr. Money Mustache |
 | `health-wellness` | Health & Wellness | r/longevity, r/fitness, NIH, Examine.com |
-| `digital-marketing` | Digital Marketing | r/SEO, r/PPC, Moz, Backlinko, HubSpot |
-| `productivity` | Productivity & Tools | r/ObsidianMD, r/Notion, Ness Labs, Zapier blog |
 | `travel` | Travel | r/solotravel, r/digitalnomad, Nomadic Matt, The Points Guy |
 | `geopolitics` | Geopolitics | r/geopolitics, r/CredibleDefense, Foreign Affairs, The Diplomat, War on the Rocks |
 | `hinduism` | Hinduism & Indian Culture | r/hinduism, r/Vedanta, Swarajya, Dharma Dispatch, Indica Today |
+| `indian-politics` | Indian Politics | r/india, r/IndiaSpeaks, Indian Express, The Hindu, NDTV |
 | `stock-market` | Stock Market & Investing | r/stocks, r/wallstreetbets, MarketWatch, Bloomberg, Seeking Alpha |
 
 ### How to Add a New Niche
@@ -320,7 +319,15 @@ port: 3001
 See **[DEPLOY.md](DEPLOY.md)** for full setup:
 - **Frontend**: Vercel (connect GitHub, root `frontend`)
 - **Backend**: Google Cloud Run (CI/CD via GitHub Actions)
-- **Cron**: Noise2Article every 6 hours
+- **Cron**: Noise2Article every 12 hours
+
+### Current Cron Niche Set
+Configured in `.github/workflows/n2a-cron.yml`:
+- `ai-tech`
+- `personal-finance`
+- `geopolitics`
+- `indian-politics`
+- `stock-market`
 
 ## 📈 Cost Optimization
 
