@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import apiService, { VcgBiasRange, VcgConfig, VcgPlatform } from '../services/api';
+import PRESETS from '../config/vcg-presets.json';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -140,6 +142,15 @@ export function CaptionedVideoGenerator() {
       .catch(() => setConfigError('Failed to load render config. Try refreshing.'));
   }, []);
 
+  // Preset state
+  const [selectedPreset, setSelectedPreset] = useState('');
+
+  const applyPreset = (key: string) => {
+    setSelectedPreset(key);
+    const preset = PRESETS.find(p => p.key === key);
+    if (preset) setForm(prev => ({ ...prev, ...preset.values }));
+  };
+
   // Form & polling state
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [phase, setPhase] = useState<RenderPhase>('idle');
@@ -152,6 +163,18 @@ export function CaptionedVideoGenerator() {
   useEffect(() => {
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, []);
+
+  // ─── Prefill from navigation state (e.g. "Render Video" button in SavedArticles) ──
+  const location = useLocation();
+  const vcgNavigate = useNavigate();
+
+  useEffect(() => {
+    const prefill = (location.state as { prefill?: Partial<FormState> } | null)?.prefill;
+    if (prefill && Object.keys(prefill).length > 0) {
+      setForm(prev => ({ ...prev, ...prefill }));
+      vcgNavigate('/video', { replace: true, state: {} });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bodyLimit = vcgConfig ? getBodyLimit(form.platforms, vcgConfig.platforms) : 360;
   const bodyLen = form.body.length;
@@ -413,6 +436,23 @@ export function CaptionedVideoGenerator() {
           GitHub Actions.
         </p>
       </div>
+
+      {/* ── Preset ── */}
+      <section>
+        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-3">
+          Preset
+        </label>
+        <select
+          value={selectedPreset}
+          onChange={e => applyPreset(e.target.value)}
+          className="glass-input w-full text-sm px-3 py-2 rounded-lg"
+        >
+          <option value="">— None —</option>
+          {PRESETS.map(p => (
+            <option key={p.key} value={p.key}>{p.label}</option>
+          ))}
+        </select>
+      </section>
 
       {/* ── Template ── */}
       {cfg.templates.length > 1 && (

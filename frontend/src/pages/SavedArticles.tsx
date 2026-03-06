@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import apiService from '../services/api';
 import { ArticleCard, type GeneratedArticle } from '../components/ArticleCard';
 
@@ -31,6 +32,9 @@ export function SavedArticles() {
   const [loadingArticle, setLoadingArticle] = useState(false);
   const [editingNicheId, setEditingNicheId] = useState<string | null>(null);
   const [savingNiche, setSavingNiche] = useState(false);
+  const [renderingId, setRenderingId] = useState<string | null>(null);
+
+  const navigate = useNavigate();
 
   type TabId = 'all' | 'uncategorized' | string;
   const [activeTab, setActiveTab] = useState<TabId>('all');
@@ -84,6 +88,22 @@ export function SavedArticles() {
     } finally {
       setSavingNiche(false);
       setEditingNicheId(null);
+    }
+  };
+
+  const handleRenderVideo = async (articleId: string, knownTitle: string) => {
+    setRenderingId(articleId);
+    try {
+      const article = loadedArticle?.id === articleId
+        ? loadedArticle
+        : (await apiService.getN2AArticle(articleId)).data;
+      const hook = article?.title ?? knownTitle;
+      const body = article?.repurposed?.instagram?.hook ?? '';
+      navigate('/video', { state: { prefill: { hook, body } } });
+    } catch {
+      navigate('/video', { state: { prefill: { hook: knownTitle, body: '' } } });
+    } finally {
+      setRenderingId(null);
     }
   };
 
@@ -336,6 +356,28 @@ export function SavedArticles() {
                       <span aria-hidden>·</span>
                       <span className="truncate max-w-[180px]">{a.themeName}</span>
                     </div>
+                  </div>
+
+                  {/* Render Video button */}
+                  <div onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleRenderVideo(a.id, a.title)}
+                      disabled={renderingId === a.id}
+                      title="Open in VideoGen"
+                      className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md border border-white/[0.06] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.12] transition text-xs disabled:opacity-40"
+                    >
+                      {renderingId === a.id ? (
+                        <svg className="w-3 h-3 animate-spin" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.723v6.554a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                        </svg>
+                      )}
+                      <span>Render</span>
+                    </button>
                   </div>
                 </button>
 

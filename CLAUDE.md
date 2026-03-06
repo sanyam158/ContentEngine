@@ -94,6 +94,21 @@ VCG uses backend routes in `backend/src/routes/videocreater.ts` to dispatch `ren
 - MinimalText payload includes `textFontSizeBias`
 - Existing GitHub dispatch flow remains unchanged
 
+### InstagramVideoGen (IGV)
+IGV generates graphics-first Instagram Reels (1080×1920, 9:16). It is a separate tab from VCG.
+
+**Flow**: User picks source (topic or saved article) + template → Gemini generates structured JSON script → user reviews/edits → same VCG trigger/poll/download infrastructure renders via VideoCreater GitHub Actions.
+
+**Templates** (`statCard`, `listicle`, `quoteCard`, `newsTicker`) are defined in `backend/data/igv-templates.json`. The frontend fetches this via `GET /api/igv/templates` on mount.
+
+**Backend routes** (`backend/src/routes/instagramvideo.ts`, mounted at `/api/igv`):
+- `GET /api/igv/templates` — serves `igv-templates.json` (template definitions, field specs, default accent colors per niche)
+- `POST /api/igv/generate` — body: `{ template, source: 'article'|'topic', articleId?, topic?, niche? }` → calls Gemini (`gemini-2.5-flash` with `responseMimeType: 'application/json'`) and returns typed `IgvScript` JSON
+
+**Render step** reuses `POST /api/vcg/trigger` unchanged — the `template` field in the payload (`statCard`, `listicle`, etc.) tells the VideoCreater Remotion renderer which composition to use. Payload always includes `platforms: ['instagramReel']`.
+
+**To add a new IGV template**: add entry to `igv-templates.json`, add a corresponding Remotion component in the VideoCreater repo, handle the new template key in `render.yml`.
+
 ## Environment Variables
 
 Copy `backend/.env.example` to `backend/.env`. Required:
