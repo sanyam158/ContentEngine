@@ -110,6 +110,11 @@ async function writeToGist(items: GeneratedArticle[]): Promise<void> {
   const gistId = process.env.GIST_ID;
   const token = process.env.GITHUB_TOKEN;
   if (!gistId || !token) return;
+  const content = JSON.stringify(items, null, 2);
+  if (typeof content !== 'string') {
+    console.warn('[Storage] Skipping Gist write: payload could not be serialized.');
+    return;
+  }
 
   const res = await fetch(`https://api.github.com/gists/${gistId}`, {
     method: 'PATCH',
@@ -120,7 +125,7 @@ async function writeToGist(items: GeneratedArticle[]): Promise<void> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      files: { [STORAGE_KEY]: { content: JSON.stringify(items, null, 2) } },
+      files: { [STORAGE_KEY]: { content } },
     }),
   });
   if (!res.ok) {
@@ -206,7 +211,22 @@ async function readAllCached(): Promise<GeneratedArticle[]> {
 }
 
 async function writeAll(items: GeneratedArticle[]): Promise<void> {
-  const processed = await processImages(items);
+  // Defensive runtime guard: do not overwrite storage when a bad/null payload reaches writeAll.
+  if (!Array.isArray(items)) {
+    console.warn('[Storage] Skipping writeAll: items is null or not an array.');
+    return;
+  }
+
+  const nonNullItems = items.filter((item): item is GeneratedArticle => Boolean(item));
+  if (nonNullItems.length !== items.length) {
+    console.warn(`[Storage] writeAll received ${items.length - nonNullItems.length} null/invalid entries; dropping them.`);
+  }
+  if (nonNullItems.length === 0 && items.length > 0) {
+    console.warn('[Storage] Skipping writeAll: all entries were null/invalid.');
+    return;
+  }
+
+  const processed = await processImages(nonNullItems);
   if (process.env.GIST_ID && process.env.GITHUB_TOKEN) return writeToGist(processed);
   if (process.env.GCS_BUCKET) return writeToGCS(processed);
   return writeToLocal(processed);
