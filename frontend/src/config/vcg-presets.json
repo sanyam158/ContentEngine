@@ -1,0 +1,65 @@
+[
+  {
+    "key": "finance-insta",
+    "label": "Finance Insta",
+    "values": {
+      "template": "reel",
+      "platforms": ["instagramReel"],
+      "showProgressBar": false,
+      "showPlatformBadge": false,
+      "accentColor": "#FFD66B",
+      "bodyTextColor": "#FFB833",
+      "title": "The Capital Report 001",
+      "bodyFontSizeBias": 0,
+      "pageName": "the.Capital.HQ",
+      "animationSpeed": "fast",
+      "animationStyle": "slideLeft",
+      "theme": "minimalBlack",
+      "pace": "snappy",
+      "fontFamily": "inter",
+      "ctaText": "FULL_REPORT_BELOW"
+    }
+  },
+  {
+    "key": "politics-insta",
+    "label": "Politics Insta",
+    "values": {
+      "template": "reel",
+      "platforms": ["instagramReel"],
+      "showProgressBar": false,
+      "showPlatformBadge": false,
+      "accentColor": "#FF8A8A",
+      "bodyTextColor": "#FFB833",
+      "title": "The Power Report 001",
+      "bodyFontSizeBias": 0,
+      "pageName": "the.Diplomat.HQ",
+      "animationSpeed": "fast",
+      "animationStyle": "slideLeft",
+      "theme": "minimalBlack",
+      "pace": "snappy",
+      "fontFamily": "inter",
+      "ctaText": "FULL_REPORT_BELOW"
+    }
+  },
+  {
+    "key": "tech-insta",
+    "label": "Tech Insta",
+    "values": {
+      "template": "reel",
+      "platforms": ["instagramReel"],
+      "showProgressBar": false,
+      "showPlatformBadge": false,
+      "accentColor": "#66D9FF",
+      "bodyTextColor": "#FFB833",
+      "title": "The Tech Report 001",
+      "bodyFontSizeBias": 0,
+      "pageName": "the.Tech.HQ",
+      "animationSpeed": "fast",
+      "animationStyle": "slideLeft",
+      "theme": "minimalBlack",
+      "pace": "snappy",
+      "fontFamily": "inter",
+      "ctaText": "FULL_REPORT_BELOW"
+    }
+  }
+]
