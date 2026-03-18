@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import apiService, { VcgBiasRange, VcgConfig, VcgPlatform } from '../services/api';
+import apiService, { SavedVcgRender, VcgBiasRange, VcgConfig, VcgPlatform } from '../services/api';
 import PRESETS from '../config/vcg-presets.json';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -14,6 +14,7 @@ const MAX_STATUS_POLLS = 90;
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type RenderPhase = 'idle' | 'triggering' | 'waiting-for-run' | 'rendering' | 'done' | 'error';
+type VideoGenTab = 'current' | 'saved';
 
 interface FormState {
   template: string;
@@ -104,12 +105,37 @@ function clampToRange(value: number, range: VcgBiasRange): number {
   return Math.min(range.max, Math.max(range.min, value));
 }
 
+function getRenderTitle(form: FormState): string {
+  if (form.template === 'reel') {
+    return form.title.trim() || form.hook.trim() || 'Untitled reel render';
+  }
+  return form.heading.trim() || 'Untitled minimal text render';
+}
+
+function getRenderDescription(form: FormState): string | undefined {
+  if (form.template === 'reel') {
+    return form.hook.trim() || form.body.trim().slice(0, 160) || undefined;
+  }
+  return form.text.trim().slice(0, 160) || undefined;
+}
+
+function formatRenderDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function CaptionedVideoGenerator() {
   // Config loading
   const [vcgConfig, setVcgConfig] = useState<VcgConfig | null>(null);
   const [configError, setConfigError] = useState('');
+  const [activeTab, setActiveTab] = useState<VideoGenTab>('current');
+  const [savedRenders, setSavedRenders] = useState<SavedVcgRender[]>([]);
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [savedError, setSavedError] = useState('');
+  const [saveNotice, setSaveNotice] = useState('');
 
   useEffect(() => {
     apiService.getVcgConfig()
@@ -140,6 +166,27 @@ export function CaptionedVideoGenerator() {
         }));
       })
       .catch(() => setConfigError('Failed to load render config. Try refreshing.'));
+  }, []);
+
+  const loadSavedRenders = async () => {
+    setSavedLoading(true);
+    setSavedError('');
+    try {
+      const response = await apiService.listSavedVcgRenders();
+      if (!response.success) {
+        setSavedError(response.error || 'Failed to load saved renders.');
+        return;
+      }
+      setSavedRenders(response.data || []);
+    } catch (err) {
+      setSavedError(err instanceof Error ? err.message : 'Failed to load saved renders.');
+    } finally {
+      setSavedLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadSavedRenders();
   }, []);
 
   // Preset state
@@ -206,6 +253,7 @@ export function CaptionedVideoGenerator() {
     submitFailedRef.current = false;
     setArtifacts([]);
     setRunUrl('');
+    setSaveNotice('');
 
     // Validate
     if (form.platforms.length === 0) return fail('Select at least one platform.');
@@ -274,7 +322,12 @@ export function CaptionedVideoGenerator() {
     const triggeredAt = Date.now();
 
     try {
-      await apiService.triggerVcgRender(payload);
+      await apiService.triggerVcgRender(payload, {
+        template: form.template,
+        title: getRenderTitle(form),
+        description: getRenderDescription(form),
+        platforms: form.platforms,
+      });
     } catch (err) {
       const msg = axios.isAxiosError(err)
         ? (err.response?.data?.error ?? `HTTP ${err.response?.status}`)
@@ -343,6 +396,10 @@ export function CaptionedVideoGenerator() {
       setArtifacts(arts);
       setPhase('done');
       setStatusMsg('Render complete! Download your videos below.');
+      setSaveNotice('Saving this render in the background. It will still appear in Saved even if you refresh this page.');
+      setTimeout(() => {
+        void loadSavedRenders();
+      }, 1500);
     } catch {
       fail('Render succeeded but failed to fetch artifacts. Visit the GitHub Actions run to download manually.');
     }
@@ -358,6 +415,19 @@ export function CaptionedVideoGenerator() {
         ? (err.response?.data?.error ?? `HTTP ${err.response?.status}`)
         : String(err);
       alert(`Download failed: ${msg}`);
+    }
+  };
+
+  const handleDeleteSavedRender = async (id: string) => {
+    try {
+      const response = await apiService.deleteSavedVcgRender(id);
+      if (!response.success) {
+        setSavedError(response.error || 'Failed to delete saved render.');
+        return;
+      }
+      setSavedRenders((prev) => prev.filter((item) => item.id !== id));
+    } catch (err) {
+      setSavedError(err instanceof Error ? err.message : 'Failed to delete saved render.');
     }
   };
 
@@ -436,6 +506,30 @@ export function CaptionedVideoGenerator() {
           GitHub Actions.
         </p>
       </div>
+
+      <div className="flex gap-2 rounded-xl bg-white/[0.03] border border-white/[0.06] p-1">
+        {(
+          [
+            { key: 'current', label: 'Current Render' },
+            { key: 'saved', label: `Saved (${savedRenders.length})` },
+          ] as Array<{ key: VideoGenTab; label: string }>
+        ).map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
+              activeTab === tab.key
+                ? 'bg-red-600/20 text-red-300 border border-red-500/20'
+                : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/[0.03]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'current' && (
+        <>
 
       {/* ── Preset ── */}
       <section>
@@ -754,6 +848,9 @@ export function CaptionedVideoGenerator() {
               View GitHub Actions run →
             </a>
           )}
+          {saveNotice && (
+            <p className="mt-2 text-xs text-zinc-500">{saveNotice}</p>
+          )}
         </div>
       )}
 
@@ -781,10 +878,106 @@ export function CaptionedVideoGenerator() {
 
       {phase === 'done' && (
         <button
-          onClick={() => { setPhase('idle'); setArtifacts([]); setRunUrl(''); setStatusMsg(''); }}
+          onClick={() => { setPhase('idle'); setArtifacts([]); setRunUrl(''); setStatusMsg(''); setSaveNotice(''); }}
           className="btn-glass w-full py-2 rounded-xl text-sm text-zinc-500 hover:text-zinc-300 transition">
           Reset
         </button>
+      )}
+        </>
+      )}
+
+      {activeTab === 'saved' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Saved Downloads</h3>
+              <p className="text-xs text-zinc-500">Completed renders saved across deployments.</p>
+            </div>
+            <button
+              onClick={() => void loadSavedRenders()}
+              className="btn-glass px-3 py-2 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 transition"
+            >
+              Refresh
+            </button>
+          </div>
+
+          {savedError && (
+            <div className="rounded-lg px-4 py-3 text-sm border bg-red-950/30 border-red-500/20 text-red-400">
+              {savedError}
+            </div>
+          )}
+
+          {savedLoading ? (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-6 text-sm text-zinc-500">
+              Loading saved renders...
+            </div>
+          ) : savedRenders.length === 0 ? (
+            <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-6 text-sm text-zinc-500">
+              No saved video renders yet. Finish one in the Current Render tab and it will appear here.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {savedRenders.map((render) => (
+                <article
+                  key={render.id}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-red-300 bg-red-500/10 border border-red-500/20 rounded-md px-2 py-1">
+                          {render.template}
+                        </span>
+                        <span className="text-[10px] text-zinc-600">{formatRenderDate(render.createdAt)}</span>
+                      </div>
+                      <h4 className="text-sm font-semibold text-white truncate">{render.title}</h4>
+                      {render.description && (
+                        <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{render.description}</p>
+                      )}
+                      <p className="text-[11px] text-zinc-600 mt-2">
+                        Platforms: {render.platforms.join(', ')}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => void handleDeleteSavedRender(render.id)}
+                      className="text-xs text-zinc-500 hover:text-red-300 transition"
+                    >
+                      Delete
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href={render.runUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn-glass px-3 py-2 rounded-lg text-xs text-zinc-400 hover:text-zinc-200 transition"
+                    >
+                      View GitHub Run
+                    </a>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Downloads</p>
+                    {render.artifacts.map((artifact) => (
+                      <button
+                        key={`${render.id}-${artifact.id}`}
+                        onClick={() => void handleDownload(artifact.id, artifact.name)}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-emerald-500/20 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-950/40 transition text-sm font-medium w-full text-left"
+                      >
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        {artifact.name}.zip
+                      </button>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       )}
     </main>
   );

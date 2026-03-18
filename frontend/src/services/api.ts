@@ -17,6 +17,22 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 export interface VcgPlatform { key: string; label: string; bodyCharLimit: number; }
 export interface VcgTemplate { key: string; label: string; }
 export interface VcgBiasRange { min: number; max: number; default: number; step: number; }
+export interface SavedVcgArtifact {
+  id: number;
+  name: string;
+  downloadPath: string;
+}
+export interface SavedVcgRender {
+  id: string;
+  runId: number;
+  runUrl: string;
+  template: string;
+  title: string;
+  description?: string;
+  platforms: string[];
+  artifacts: SavedVcgArtifact[];
+  createdAt: string;
+}
 export interface VcgConfig {
   platforms:       VcgPlatform[];
   templates:       VcgTemplate[];
@@ -308,8 +324,19 @@ export const apiService = {
   },
 
   // CaptionedVideoGenerator — GitHub Actions render pipeline
-  triggerVcgRender: async (payload: object): Promise<void> => {
-    await api.post('/vcg/trigger', { inputs: { payload: JSON.stringify(payload) } });
+  triggerVcgRender: async (
+    payload: object,
+    metadata: {
+      template: string;
+      title: string;
+      description?: string;
+      platforms: string[];
+    }
+  ): Promise<void> => {
+    await api.post('/vcg/trigger', {
+      inputs: { payload: JSON.stringify(payload) },
+      metadata,
+    });
   },
 
   getVcgRuns: async (after: number): Promise<{ run: { id: number; created_at: string; status: string; html_url: string } | null }> => {
@@ -329,6 +356,29 @@ export const apiService = {
 
   getVcgConfig: async (): Promise<VcgConfig> => {
     const response = await api.get('/vcg/config');
+    return response.data;
+  },
+
+  listSavedVcgRenders: async (): Promise<{ success: boolean; data?: SavedVcgRender[]; error?: string }> => {
+    const response = await api.get('/vcg/saved');
+    return response.data;
+  },
+
+  saveVcgRender: async (payload: {
+    runId: number;
+    runUrl: string;
+    template: string;
+    title: string;
+    description?: string;
+    platforms: string[];
+    artifacts: SavedVcgArtifact[];
+  }): Promise<{ success: boolean; data?: SavedVcgRender; error?: string }> => {
+    const response = await api.post('/vcg/saved', payload);
+    return response.data;
+  },
+
+  deleteSavedVcgRender: async (id: string): Promise<{ success: boolean; error?: string }> => {
+    const response = await api.delete(`/vcg/saved/${encodeURIComponent(id)}`);
     return response.data;
   },
 
