@@ -1,6 +1,7 @@
 # ContentEngine — AI Content Generation Platform
 
 Convert your video scripts into viral X/Twitter threads using AI. This full-stack application combines **Gemini 3**, **Tavily web search**, and **Composio's X/Twitter integration** to create authentic, high-quality Twitter threads without the "AI slop" feel.
+->
 
 ## 🎯 Features
 
